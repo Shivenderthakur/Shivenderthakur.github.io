@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shivender Singh Thakur — AI on real hardware</title>
+<meta name="description" content="Shivender Singh Thakur builds AI systems that run on constrained hardware: computer vision, edge inference, embedded firmware and full-stack robotics. CTO at CoShot, Jodhpur.">
+<meta name="author" content="Shivender Singh Thakur">
+<meta property="og:title" content="Shivender Singh Thakur — AI on real hardware">
+<meta property="og:description" content="A humanoid robot's face recognition, conversation engine and speech pipeline, all on a 1 GB Raspberry Pi.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="assets/shivender.jpg">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230E1917'/%3E%3Cpath d='M8 24V13l8-5 8 5v11' fill='none' stroke='%23F0A31E' stroke-width='2.4'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<a class="skip" href="#work">Skip to the work</a>
+
+<header class="masthead">
+  <a class="wordmark" href="#top">
+    <span class="wordmark__name">Shivender Singh Thakur</span>
+    <span class="wordmark__role">Chief Technology Officer, CoShot</span>
+  </a>
+  <nav aria-label="Sections">
+    <a href="#work">Work</a>
+    <a href="#experience">Experience</a>
+    <a href="#stack">Stack</a>
+    <a href="#contact">Contact</a>
+  </nav>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="hero__text">
+      <h1>I put intelligence on hardware that has no business running it.</h1>
+      <p class="lede">A humanoid robot's face recognition, its GPT-3.5 conversation engine and its
+      speech pipeline, all running on a 1 GB Raspberry Pi. It stood in front of a live crowd in
+      Jodhpur. Four regional newspapers covered it.</p>
+      <p class="hero__meta">Computer vision, edge inference, embedded firmware and full-stack
+      robotics. Two years of it, built while finishing a B.E. in Computer Science.</p>
+      <div class="hero__links">
+        <a class="btn" href="https://www.linkedin.com/in/shivender-singh-thakur" rel="me noopener" target="_blank">LinkedIn</a>
+        <a class="btn" href="https://github.com/Shivenderthakur" rel="me noopener" target="_blank">GitHub</a>
+      </div>
+    </div>
+
+    <figure class="viewport" id="viewport">
+      <canvas id="arm-canvas" aria-label="Interactive 3D model of a five-axis robotic arm that follows your pointer" role="img"></canvas>
+      <figcaption class="viewport__hud" aria-hidden="true">
+        <span class="hud__line"><b>J1</b><i id="j1">+000.0</i></span>
+        <span class="hud__line"><b>J2</b><i id="j2">+000.0</i></span>
+        <span class="hud__line"><b>J3</b><i id="j3">+000.0</i></span>
+        <span class="hud__line"><b>J4</b><i id="j4">+000.0</i></span>
+        <span class="hud__line hud__mode"><b>MODE</b><i id="mode">IDLE SWEEP</i></span>
+      </figcaption>
+      <p class="viewport__hint" id="viewport-hint">Move your pointer across the panel. The arm solves its own joint angles to reach you.</p>
+      <noscript><p class="viewport__fallback">This panel runs a live 3D arm. Enable JavaScript to drive it.</p></noscript>
+    </figure>
+  </section>
+
+  <section class="prose" id="about" aria-labelledby="about-h">
+    <div class="rail"><h2 id="about-h">The short version</h2></div>
+    <div class="body">
+      <p>Most people building AI agents have never made software touch the physical world. For two
+      years that is the only kind of software I have written. Not in simulation. On real hardware,
+      shipped in front of real audiences.</p>
+      <p>I reverse-engineered the remote-pilot system behind Japan's Avatar Robot Café and rebuilt my
+      own gesture-controlled arm in seven days. I demonstrated a robotic arm at PROMETEO 2025 at
+      IIT Jodhpur, where a professor recommended advancing the work. When an Arduino Mega hit its
+      wireless ceiling, I moved the entire codebase to ESP32 and kept the system shipping.</p>
+      <p>The range runs the whole stack: firmware for ESP32 and Arduino, custom UART protocols
+      written from scratch where no library existed, DLIB compiled from source on memory-starved
+      boards, vision models with YOLO and MediaPipe, and local language pipelines with Ollama and
+      retrieval. Now I am pointing that foundation at agentic AI, at systems that plan, call tools
+      and act rather than only perceive and converse.</p>
+      <figure class="portrait">
+        <img src="assets/shivender.jpg" alt="Shivender Singh Thakur" width="720" height="720" loading="lazy">
+        <figcaption>Jodhpur, Rajasthan. Graduating June 2026.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="work" aria-labelledby="work-h">
+    <div class="section-head">
+      <h2 id="work-h">Work</h2>
+      <p class="section-note">Four builds that went outside the lab.</p>
+    </div>
+
+    <article class="entry entry--lead">
+      <div class="rail">
+        <span class="rail__when">2023 &ndash; 2025</span>
+        <span class="rail__where">RoboAI Hub</span>
+      </div>
+      <div class="body">
+        <h3>The intelligence layer of a public humanoid robot</h3>
+        <p>Face recognition, a GPT-3.5 conversation engine and a speech-to-text and text-to-speech
+        pipeline, all fitted onto a 1 GB Raspberry Pi. DLIB would not install, so I compiled it from
+        source under the memory limit. The robot ran daily public demonstrations at Umaid Club and
+        Nehru Park in Jodhpur and was covered by four regional newspapers.</p>
+        <ul class="facts">
+          <li><span>Compute budget</span> 1 GB Raspberry Pi</li>
+          <li><span>Ran for</span> 22 months</li>
+          <li><span>Press</span> 4 regional newspapers</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="entry">
+      <div class="rail">
+        <span class="rail__when">June 2025</span>
+        <span class="rail__where">MBM University</span>
+      </div>
+      <div class="body">
+        <h3>KineLink, a gesture-controlled robotic arm</h3>
+        <p>I studied the DAWN remote-pilot system behind Japan's Avatar Robot Café, worked out how
+        the piloting loop held together, and built my own version in seven days. The arm reads hand
+        gestures and mirrors them, no controller in between.</p>
+      </div>
+    </article>
+
+    <article class="entry">
+      <div class="rail">
+        <span class="rail__when">November 2024</span>
+        <span class="rail__where">RoboAI Hub</span>
+      </div>
+      <div class="body">
+        <h3>Servo control across the XY and XZ planes</h3>
+        <p>A robotic arm that moves through two planes with smooth angle interpolation, driven by a
+        custom UART protocol between an Arduino Nano and a Raspberry Pi. Closed-loop joint position
+        came from potentiometer feedback. No library existed for the link, so the protocol was
+        written from scratch. The arm was later demonstrated at PROMETEO 2025 at IIT Jodhpur.</p>
+      </div>
+    </article>
+
+    <article class="entry">
+      <div class="rail">
+        <span class="rail__when">January 2025</span>
+        <span class="rail__where">PM SHRI KV ISA, Mount Abu</span>
+      </div>
+      <div class="body">
+        <h3>A five-day AI and machine learning curriculum, written from nothing</h3>
+        <p>Python fundamentals, core AI, computer vision and the mathematics underneath the models,
+        structured into five days and taught to more than fifty school students. I also mentored
+        three junior interns through embedded systems and Python.</p>
+      </div>
+    </article>
+  </section>
+
+  <section id="experience" aria-labelledby="exp-h">
+    <div class="section-head">
+      <h2 id="exp-h">Experience</h2>
+      <p class="section-note">Roles, in reverse.</p>
+    </div>
+    <ol class="timeline">
+      <li>
+        <span class="tl__when">Aug 2026 &ndash; present</span>
+        <span class="tl__what"><b>Chief Technology Officer</b>, CoShot. Building CoShot from the technology side up.</span>
+      </li>
+      <li>
+        <span class="tl__when">Jun 2026 &ndash; present</span>
+        <span class="tl__what"><b>Chief Technology Officer</b>, Basttl Media. Owning AI-automation strategy, platform decisions and technical infrastructure, with a mandate to modernise how the team works.</span>
+      </li>
+      <li>
+        <span class="tl__when">Oct 2024 &ndash; Oct 2025</span>
+        <span class="tl__what"><b>DevOps Tech Lead</b>, EPIC. A full one-year term leading the technical side of MBM University's student developer community, running hands-on workshops and member projects.</span>
+      </li>
+      <li>
+        <span class="tl__when">Nov 2023 &ndash; Aug 2025</span>
+        <span class="tl__what"><b>AI Systems and Robotics Intern</b>, RoboAI Hub. Public stages, government schools, IIT Jodhpur, four newspapers and daily public demonstrations.</span>
+      </li>
+      <li>
+        <span class="tl__when">Jan 2025</span>
+        <span class="tl__what"><b>AI and Machine Learning Workshop Trainer</b>, RoboAI Hub. Designed and co-led the five-day workshop at PM Shri KV ISA, Mount Abu.</span>
+      </li>
+      <li>
+        <span class="tl__when">Nov 2023 &ndash; Dec 2023</span>
+        <span class="tl__what"><b>Machine Learning Intern</b>, Academor. Built a loan-prediction system end to end, from preprocessing and feature selection through model evaluation.</span>
+      </li>
+    </ol>
+
+    <div class="education">
+      <h3>Education</h3>
+      <ol class="timeline timeline--tight">
+        <li>
+          <span class="tl__when">2023 &ndash; 2026</span>
+          <span class="tl__what"><b>B.E. Computer Science and Engineering</b>, MBM University, Jodhpur.</span>
+        </li>
+        <li>
+          <span class="tl__when">2021 &ndash; 2023</span>
+          <span class="tl__what"><b>Diploma in Computer Science</b>, Government Polytechnic College, Jodhpur. Grade 9.97.</span>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="stack" aria-labelledby="stack-h">
+    <div class="section-head">
+      <h2 id="stack-h">Bench inventory</h2>
+      <p class="section-note">Boards I have shipped on, and what runs on them.</p>
+    </div>
+    <div class="inventory">
+      <div class="inv">
+        <h3>Boards</h3>
+        <ul class="parts">
+          <li>ESP32</li><li>ESP32-CAM</li><li>ESP8266</li><li>ESP-01</li>
+          <li>Arduino Mega</li><li>Arduino Nano</li><li>Arduino Uno</li><li>Arduino Pro Mini</li>
+          <li>Raspberry Pi 3</li><li>Raspberry Pi 4</li><li>Raspberry Pi 5</li>
+          <li>Pi Zero</li><li>Pi Pico</li><li>Pi Pico W</li>
+        </ul>
+      </div>
+      <div class="inv">
+        <h3>Vision</h3>
+        <ul class="parts">
+          <li>YOLOv3 to v11</li><li>MediaPipe</li><li>OpenCV</li><li>DLIB</li><li>LLaVA</li><li>TinyML</li>
+        </ul>
+      </div>
+      <div class="inv">
+        <h3>Language and agents</h3>
+        <ul class="parts">
+          <li>Ollama</li><li>Retrieval-augmented generation</li><li>GPT-3.5</li><li>Speech to text</li><li>Text to speech</li>
+        </ul>
+      </div>
+      <div class="inv">
+        <h3>Systems</h3>
+        <ul class="parts">
+          <li>Python</li><li>Embedded C</li><li>UART</li><li>Raspbian Lite</li><li>Linux</li>
+          <li>CMake</li><li>SSH</li><li>VNC</li><li>Bluetooth</li><li>Google Cloud</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="contact" aria-labelledby="contact-h">
+    <div class="section-head">
+      <h2 id="contact-h">Say hello</h2>
+    </div>
+    <div class="contact">
+      <p class="contact__pitch">Open to agentic AI, computer vision, robotics and embedded
+      engineering roles, projects and collaborations. The fastest way to reach me is a message on
+      LinkedIn.</p>
+      <ul class="contact__links">
+        <li><a href="https://www.linkedin.com/in/shivender-singh-thakur" rel="me noopener" target="_blank">linkedin.com/in/shivender-singh-thakur</a></li>
+        <li><a href="https://github.com/Shivenderthakur" rel="me noopener" target="_blank">github.com/Shivenderthakur</a></li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>Shivender Singh Thakur</span>
+  <span>Jodhpur, Rajasthan, India</span>
+</footer>
+
+<script type="module" src="js/arm.js"></script>
+<script src="js/site.js" defer></script>
+</body>
+</html>
