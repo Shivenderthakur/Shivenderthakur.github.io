@@ -7,7 +7,7 @@ external library and it loads from a CDN at runtime.
 index.html          the whole page
 css/styles.css      type, colour and layout
 js/arm.js           the 3D cell: arm, claw, draggable payload, pick-and-place, orbit camera
-js/accents.js       four small 3D pieces beside the writing, sharing one WebGL context
+js/accents.js       one live window per project, all sharing a single WebGL context
 js/site.js          highlights the section you are reading in the masthead
 assets/             portrait
 ```
@@ -67,14 +67,16 @@ come from a generated room environment through `PMREMGenerator` with ACES filmic
 mapping. Panel width, camera distance, field of view, pixel ratio and shadow map size all
 scale together, so the cell stays framed from a phone to a wide desktop.
 
-## The accents
+## The project windows
 
-Four smaller pieces sit beside the writing: the face landmarks a recogniser keys on, a hand
-pose driving a gripper, a two-link arm tracing both of its working planes, and the boards
-themselves. All four share a single WebGL context. The renderer draws each one into a corner
-of one offscreen canvas and the frame is blitted into the 2D canvas on the page, so four
-moving pictures cost one GPU context rather than four. Each one only runs while it is on
-screen.
+Each project in Work gets its own live instrument window, dark like the hero panel so the
+page reads as one machine: the landmarks a face recogniser keys on, a hand pose driving a
+gripper, and a two-link arm tracing both of its working planes. The inventory gets a wide
+one showing the boards.
+
+All four share a single WebGL context. The renderer draws each one into a corner of one
+offscreen canvas and the frame is blitted into the 2D canvas on the page, so four moving
+pictures cost one GPU context rather than four. Each one runs only while it is on screen.
 
 With `prefers-reduced-motion` set, the unattended cycle never starts and the arm only moves
 when you drive it.

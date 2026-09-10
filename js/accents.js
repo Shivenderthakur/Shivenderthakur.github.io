@@ -1,5 +1,5 @@
-/* Small live pieces beside the writing: the face pipeline, the gesture link,
-   the two-plane servo trace, and the boards themselves.
+/* One live window per project: the face pipeline, the gesture link, the
+   two-plane servo trace, and the boards themselves.
 
    All four share a single WebGL context. The renderer draws each one into a
    corner of one offscreen canvas and the result is blitted into the 2D canvas
@@ -7,8 +7,9 @@
 
 import * as THREE from "three";
 
-const INK = 0x44584f;
-const STEEL = 0xa7b3ab;
+const INK = 0x46584f;
+const STEEL = 0xb3bfb6;
+const PANEL = 0x0e1917;
 const AMBER = 0xf0a31e;
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -18,22 +19,18 @@ function start() {
   const gl = document.createElement("canvas");
   let renderer;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, alpha: true });
+    renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true });
   } catch (err) {
-    nodes.forEach((n) => {
-      const note = n.nextElementSibling;
-      if (note && note.classList.contains("accent__note")) note.remove();
-      n.remove();
-    });
+    nodes.forEach((n) => (n.closest(".exhibit") || n).remove());
     console.error(err);
     return;
   }
 
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   renderer.setPixelRatio(dpr);
-  renderer.setClearAlpha(0);
+  renderer.setClearColor(PANEL, 1);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.35;
+  renderer.toneMappingExposure = 1.15;
 
   const makers = { face: makeFace, hand: makeHand, trace: makeTrace, boards: makeBoards };
   const views = [];
@@ -113,12 +110,15 @@ function stage(fov, dist, y) {
   camera.position.set(0, y, dist);
   camera.lookAt(0, y * 0.55, 0);
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a968f, 2.1));
-  const key = new THREE.DirectionalLight(0xffffff, 2.6);
-  key.position.set(2, 3.5, 3);
+  scene.add(new THREE.HemisphereLight(0x9fb8ab, 0x08110f, 0.9));
+  const key = new THREE.DirectionalLight(0xfff2dc, 3.1);
+  key.position.set(2.2, 3.6, 3);
   scene.add(key);
-  const rim = new THREE.DirectionalLight(AMBER, 1.1);
-  rim.position.set(-3, 1, -2);
+  const fill = new THREE.DirectionalLight(0x7fc4b4, 0.75);
+  fill.position.set(-3.4, 1.4, -2);
+  scene.add(fill);
+  const rim = new THREE.DirectionalLight(AMBER, 1.5);
+  rim.position.set(-2.4, 0.6, 2.4);
   scene.add(rim);
 
   return { scene, camera };
@@ -139,20 +139,20 @@ function wires(points, pairs, color, opacity) {
 /* ------------------------------------------------- 1. the face pipeline */
 
 function makeFace() {
-  const { scene, camera } = stage(34, 4.2, 0.35);
+  const { scene, camera } = stage(32, 4.9, 0.42);
   const group = new THREE.Group();
   scene.add(group);
 
   const head = new THREE.Mesh(
     new THREE.IcosahedronGeometry(1, 2),
-    new THREE.MeshStandardMaterial({ color: 0x5b6f66, roughness: 0.6, metalness: 0.2, flatShading: true })
+    new THREE.MeshStandardMaterial({ color: 0x53685f, roughness: 0.6, metalness: 0.25, flatShading: true })
   );
   head.scale.set(0.78, 1, 0.82);
   group.add(head);
 
   const shell = new THREE.LineSegments(
     new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(1.03, 2)),
-    new THREE.LineBasicMaterial({ color: STEEL, transparent: true, opacity: 0.22 })
+    new THREE.LineBasicMaterial({ color: STEEL, transparent: true, opacity: 0.3 })
   );
   shell.scale.copy(head.scale);
   group.add(shell);
@@ -246,7 +246,7 @@ function makeHand() {
   const cloud = dots(pts, 0.13, AMBER);
   group.add(cloud);
 
-  const bones = wires(pts, HAND_BONES, INK, 0.85);
+  const bones = wires(pts, HAND_BONES, STEEL, 0.9);
   group.add(bones);
 
   /* the gripper the hand is driving */
@@ -256,14 +256,14 @@ function makeHand() {
 
   const body = new THREE.Mesh(
     new THREE.BoxGeometry(0.34, 0.3, 0.3),
-    new THREE.MeshStandardMaterial({ color: INK, roughness: 0.4, metalness: 0.6 })
+    new THREE.MeshStandardMaterial({ color: INK, roughness: 0.45, metalness: 0.35 })
   );
   rig.add(body);
 
   const jaws = [-1, 1].map((side) => {
     const jaw = new THREE.Mesh(
       new THREE.BoxGeometry(0.5, 0.09, 0.09),
-      new THREE.MeshStandardMaterial({ color: STEEL, roughness: 0.3, metalness: 0.8 })
+      new THREE.MeshStandardMaterial({ color: STEEL, roughness: 0.38, metalness: 0.4 })
     );
     jaw.position.set(0.4, side * 0.2, 0);
     rig.add(jaw);
@@ -317,12 +317,13 @@ function makeHand() {
 /* ------------------------------------- 3. servo control in two planes */
 
 function makeTrace() {
-  const { scene, camera } = stage(36, 3.5, 0.35);
+  const { scene, camera } = stage(36, 3.95, 0.2);
   const group = new THREE.Group();
+  group.position.y = 0.2;
   scene.add(group);
 
-  const steel = new THREE.MeshStandardMaterial({ color: STEEL, roughness: 0.3, metalness: 0.8 });
-  const dark = new THREE.MeshStandardMaterial({ color: INK, roughness: 0.45, metalness: 0.6 });
+  const steel = new THREE.MeshStandardMaterial({ color: STEEL, roughness: 0.38, metalness: 0.4 });
+  const dark = new THREE.MeshStandardMaterial({ color: INK, roughness: 0.48, metalness: 0.35 });
 
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.36, 0.14, 24), dark);
   base.position.y = -1;
@@ -350,10 +351,10 @@ function makeTrace() {
   j2.add(tip);
 
   /* the two planes the arm works in */
-  for (const [rot, tint] of [[0, 0.3], [Math.PI / 2, 0.16]]) {
+  for (const [rot, tint] of [[0, 0.45], [Math.PI / 2, 0.24]]) {
     const frame = new THREE.LineSegments(
       new THREE.EdgesGeometry(new THREE.PlaneGeometry(2.5, 2.1)),
-      new THREE.LineBasicMaterial({ color: INK, transparent: true, opacity: tint })
+      new THREE.LineBasicMaterial({ color: 0x7f9189, transparent: true, opacity: tint })
     );
     frame.position.set(0.55, -0.02, 0);
     frame.rotation.y = rot;
@@ -406,25 +407,26 @@ function makeTrace() {
 function makeBoards() {
   const { scene, camera } = stage(26, 5.0, 0.3);
   /* look down on the boards so the sockets, headers and LEDs are the story */
-  camera.position.set(0, 1.55, 4.5);
-  camera.lookAt(0, 0.02, 0);
+  camera.position.set(0, 1.6, 4.6);
+  camera.lookAt(0, 0.22, 0);
   const group = new THREE.Group();
   scene.add(group);
 
+  /* the big board sits in the middle so the row reads centred */
   const specs = [
-    { w: 1.9, d: 1.2 },
     { w: 1.35, d: 0.78 },
+    { w: 1.9, d: 1.2 },
     { w: 0.95, d: 0.55 }
   ];
 
-  const pcb = new THREE.MeshStandardMaterial({ color: 0x2b6553, roughness: 0.64, metalness: 0.2 });
+  const pcb = new THREE.MeshStandardMaterial({ color: 0x27564a, roughness: 0.66, metalness: 0.2 });
   const chip = new THREE.MeshStandardMaterial({ color: 0x27302d, roughness: 0.5, metalness: 0.45 });
   const pin = new THREE.MeshStandardMaterial({ color: 0xc8ab63, roughness: 0.35, metalness: 0.9 });
   const led = new THREE.MeshBasicMaterial({ color: AMBER });
 
   specs.forEach((s, i) => {
     const card = new THREE.Group();
-    card.position.set((i - 1) * 1.02, (i - 1) * -0.2 + 0.12, (i - 1) * 0.16);
+    card.position.set((i - 1) * 1.34, (i - 1) * -0.16 + 0.1, (i - 1) * 0.14);
     card.rotation.set(0.16, i * 0.3 - 0.34, 0.04);
 
     const board = new THREE.Mesh(new THREE.BoxGeometry(s.w, 0.045, s.d), pcb);
@@ -450,7 +452,7 @@ function makeBoards() {
     update(dt, t) {
       group.rotation.y = reduceMotion ? -0.25 : Math.sin(t * 0.22) * 0.38 - 0.08;
       group.children.forEach((c, i) => {
-        c.position.y = (i - 1) * -0.2 + 0.12 + (reduceMotion ? 0 : Math.sin(t * 0.7 + i) * 0.04);
+        c.position.y = (i - 1) * -0.16 + 0.1 + (reduceMotion ? 0 : Math.sin(t * 0.7 + i) * 0.04);
       });
     }
   };

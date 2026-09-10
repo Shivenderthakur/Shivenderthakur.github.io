@@ -35,7 +35,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-img { max-width: 100%; display: block; }
+img { max-width: 100%; height: auto; display: block; }
 
 a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.22em; }
 a:hover { text-decoration-color: var(--phosphor); }
@@ -274,7 +274,7 @@ h2 {
 .entry:last-child { border-bottom: 1px solid var(--rule); }
 
 @media (min-width: 62rem) {
-  .entry { grid-template-columns: var(--rail-w) minmax(0, 1fr); }
+  .entry { grid-template-columns: var(--rail-w) minmax(0, var(--measure)) minmax(0, 1fr); }
 }
 
 .rail { font-family: var(--sans); font-size: 0.83rem; line-height: 1.45; }
@@ -423,33 +423,64 @@ footer {
   .viewport { height: auto; min-height: clamp(23rem, 40vw, 33rem); }
 }
 
-/* ---------- live pieces beside the writing ---------- */
+/* ---------- one live window per project ---------- */
 
-.accent {
+.exhibit {
+  position: relative;
+  margin: 1.5rem 0 0;
+  background: var(--viewport);
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.exhibit canvas {
   display: block;
   width: 100%;
-  max-width: 10.5rem;
-  aspect-ratio: 1 / 1;
-  margin: 1.35rem 0 0.45rem;
+  height: 100%;
 }
 
-.accent__note {
+.exhibit figcaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 1.7rem 0.9rem 0.75rem;
+  background: linear-gradient(to top, rgba(14, 25, 23, 0.96) 42%, rgba(14, 25, 23, 0));
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: #7d9086;
+  pointer-events: none;
+}
+
+.exhibit figcaption b {
   display: block;
-  max-width: 10.5rem;
-  font-family: var(--sans);
-  font-size: 0.72rem;
-  line-height: 1.35;
-  color: var(--muted);
+  font-weight: 400;
+  color: var(--phosphor);
 }
 
-.accent--wide {
-  max-width: 46rem;
-  aspect-ratio: 16 / 5;
+/* justify-self applies to block boxes in current browsers, and a non-stretch value
+   makes the box shrink to fit. Scope it to the grid items that actually need it. */
+@media (min-width: 62rem) {
+  .entry .exhibit {
+    margin: 0;
+    width: 100%;
+    max-width: 21rem;
+    justify-self: end;
+    align-self: start;
+  }
+}
+
+.exhibit--wide {
+  aspect-ratio: 16 / 6;
+  width: 100%;
+  max-width: 44rem;
   margin: 0 0 clamp(2rem, 4vw, 3rem);
 }
 
 @media (max-width: 61.99rem) {
-  .accent { max-width: 8.5rem; margin-top: 1rem; }
-  .accent__note { max-width: 12rem; }
-  .accent--wide { aspect-ratio: 16 / 8; }
+  .exhibit--wide { aspect-ratio: 16 / 9; }
 }
