@@ -20,7 +20,11 @@ function start() {
   try {
     renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, alpha: true });
   } catch (err) {
-    nodes.forEach((n) => n.remove());
+    nodes.forEach((n) => {
+      const note = n.nextElementSibling;
+      if (note && note.classList.contains("accent__note")) note.remove();
+      n.remove();
+    });
     console.error(err);
     return;
   }

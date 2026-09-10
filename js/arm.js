@@ -97,7 +97,7 @@ function boot() {
   else window.addEventListener("resize", resize);
 
   if (hint && coarse) {
-    hint.textContent = "Drag the block anywhere, or drag the ring above it to lift it. Let go and the arm fetches it back to the pedestal.";
+    hint.textContent = "Drag the block to move it, tap the ring to lift it. The arm fetches it back to the pedestal.";
   }
 
   bindInput();
@@ -441,7 +441,6 @@ function buildPayload() {
 /* ----------------------------------------------------------------- state */
 
 const block = new THREE.Vector3(1.62, HALF, -0.35);
-const blockVel = new THREE.Vector3();
 const angles = { yaw: 0, a1: 0.5, a2: -1.2, a3: 0.7, gap: GAP_OPEN };
 const orbit = { theta: 0.7, phi: 1.12, radius: 5, tTheta: 0.7, tPhi: 1.12 };
 
@@ -551,14 +550,12 @@ function bindInput() {
         block.z = hit.z + grabOffset.z;
         clampBlock();
       }
-      blockVel.set(0, 0, 0);
       lastTouch = performance.now();
     } else if (mode === "lift") {
       ray.setFromCamera(toNdc(e), camera);
       if (ray.ray.intersectPlane(upright, hit)) {
         block.y = clamp(hit.y, HALF, LIFT_MAX);
       }
-      blockVel.set(0, 0, 0);
       lastTouch = performance.now();
     } else if (mode === "orbit") {
       orbit.tTheta -= dx * 0.006;
@@ -580,6 +577,11 @@ function bindInput() {
         block.set(hit.x, HALF, hit.z);
         clampBlock();
       }
+    }
+    if (mode === "lift" && moved < 9) {
+      /* vertical drags scroll the page on a touch screen, so tapping the ring
+         is the way to lift the block there */
+      block.y = block.y > HALF + 0.2 ? HALF : 0.95;
     }
     if (mode !== "none") {
       setState(STATE.WATCH, performance.now());
@@ -621,7 +623,6 @@ function reached(tol) {
 
 function sequence(now) {
   const t = now - stateAt;
-  const settled = block.y <= HALF + 0.002 || onPedestal(block);
 
   switch (state) {
     case STATE.REST:
@@ -631,8 +632,8 @@ function sequence(now) {
         /* unattended: toss the block somewhere new and go fetch it */
         const a = Math.random() * Math.PI * 2;
         const r = 1.0 + Math.random() * 0.7;
-        block.set(Math.cos(a) * r, HALF + 0.55, -Math.sin(a) * r);
-        blockVel.set(0, 0, 0);
+        const high = Math.random() < 0.45;
+        block.set(Math.cos(a) * r, high ? 0.55 + Math.random() * 0.7 : HALF, -Math.sin(a) * r);
         autoAt = now + 9000;
         setState(STATE.WATCH, now);
       }
@@ -641,7 +642,7 @@ function sequence(now) {
     case STATE.WATCH:
       goal.set(block.x, Math.min(block.y + HOVER + 0.1, LIFT_MAX + 0.35), block.z);
       wantShut = false;
-      if (mode === "none" && settled && t > 450) setState(STATE.APPROACH, now);
+      if (mode === "none" && t > 450) setState(STATE.APPROACH, now);
       break;
 
     case STATE.APPROACH:
@@ -686,7 +687,6 @@ function sequence(now) {
       if (t > 340) {
         held = false;
         block.copy(HOME);
-        blockVel.set(0, 0, 0);
         setState(STATE.RETRACT, now);
       }
       break;
@@ -727,17 +727,8 @@ function frame(now) {
   padAnchor.getWorldPosition(padWorld);
   sequence(now);
 
-  /* block: carried by the claw, dragged by the operator, or falling */
-  if (held) {
-    block.copy(padWorld);
-  } else if (mode !== "slide" && mode !== "lift") {
-    const restY = onPedestal(block) ? PED_TOP + HALF : HALF;
-    if (block.y > restY + 0.001 || blockVel.y !== 0) {
-      blockVel.y -= 7.5 * dt;
-      block.y += blockVel.y * dt;
-      if (block.y <= restY) { block.y = restY; blockVel.y = 0; }
-    }
-  }
+  /* the block is either in the claw or exactly where it was last put */
+  if (held) block.copy(padWorld);
   clampBlock();
 
   payload.position.copy(block);

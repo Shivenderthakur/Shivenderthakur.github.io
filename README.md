@@ -46,10 +46,12 @@ folder.
 The panel in the hero is a robotic cell you operate.
 
 - **Drag the block** anywhere on the floor, or tap the floor to send it there.
-- **Drag the amber ring** above the block to lift it into the air. A dashed line to the
-  floor shows how high it is.
-- **Let go** and the arm comes for it: approach, descend, close the claw, lift, carry it
-  across the cell, set it down on the pedestal, then clear away and return to rest.
+- **Drag the amber ring** above the block to lift it into the air, or tap the ring on a
+  touch screen, where a vertical drag scrolls the page instead. A dashed line to the floor
+  shows how high it is, and the block stays exactly where you leave it.
+- **Let go** and the arm comes for it, in mid air if that is where it is: approach, descend,
+  close the claw, lift, carry it across the cell, set it down on the pedestal, then clear
+  away and return to rest.
 - **Drag the empty floor** to walk the camera around the cell.
 - Leave it alone and it throws the block somewhere new and fetches it again.
 
