@@ -103,13 +103,13 @@ a:hover { text-decoration-color: var(--phosphor); }
 
 @media (min-width: 62rem) {
   .hero {
-    grid-template-columns: minmax(0, 46fr) minmax(0, 54fr);
+    grid-template-columns: minmax(0, 44fr) minmax(0, 56fr);
     align-items: stretch;
   }
 }
 
 .hero__text {
-  padding: clamp(2.5rem, 6vw, 5rem) clamp(1.5rem, 4vw, 3.5rem) clamp(2.5rem, 5vw, 4rem) var(--gutter);
+  padding: clamp(2.25rem, 4vw, 3rem) clamp(1.5rem, 4vw, 3rem) clamp(2.25rem, 4vw, 3rem) var(--gutter);
   align-self: center;
 }
 
@@ -117,7 +117,7 @@ a:hover { text-decoration-color: var(--phosphor); }
   font-family: var(--sans);
   font-weight: 800;
   font-stretch: 108%;
-  font-size: clamp(2.1rem, 4.6vw, 3.55rem);
+  font-size: clamp(2rem, 4.1vw, 3.1rem);
   line-height: 1.02;
   letter-spacing: -0.032em;
   margin: 0 0 1.4rem;
@@ -191,7 +191,7 @@ a:hover { text-decoration-color: var(--phosphor); }
   right: 1.15rem;
   bottom: 1.15rem;
   left: auto;
-  max-width: 17rem;
+  max-width: 21rem;
   margin: 0;
   text-align: right;
   font-family: var(--sans);
@@ -420,5 +420,36 @@ footer {
 .masthead nav a[aria-current] { border-bottom-color: var(--phosphor); }
 
 @media (min-width: 62rem) {
-  .viewport { height: auto; min-height: clamp(26rem, 66vh, 42rem); }
+  .viewport { height: auto; min-height: clamp(23rem, 40vw, 33rem); }
+}
+
+/* ---------- live pieces beside the writing ---------- */
+
+.accent {
+  display: block;
+  width: 100%;
+  max-width: 10.5rem;
+  aspect-ratio: 1 / 1;
+  margin: 1.35rem 0 0.45rem;
+}
+
+.accent__note {
+  display: block;
+  max-width: 10.5rem;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.accent--wide {
+  max-width: 46rem;
+  aspect-ratio: 16 / 5;
+  margin: 0 0 clamp(2rem, 4vw, 3rem);
+}
+
+@media (max-width: 61.99rem) {
+  .accent { max-width: 8.5rem; margin-top: 1rem; }
+  .accent__note { max-width: 12rem; }
+  .accent--wide { aspect-ratio: 16 / 8; }
 }

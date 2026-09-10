@@ -66,7 +66,7 @@
         <span class="hud__line"><b>CLAW</b><i id="claw">OPEN</i></span>
         <span class="hud__line hud__mode"><b>MODE</b><i id="mode">DEMO</i></span>
       </figcaption>
-      <p class="viewport__hint" id="viewport-hint">Drag the block anywhere on the floor. The arm turns to it, reaches, and closes its claw. Drag the empty floor to walk around the cell.</p>
+      <p class="viewport__hint" id="viewport-hint">Drag the block, or its ring to lift it. The arm carries it back to the pedestal. Drag the floor to move the camera.</p>
       <noscript><p class="viewport__fallback">This panel runs a live 3D arm. Enable JavaScript to drive it.</p></noscript>
     </figure>
   </section>
@@ -103,6 +103,8 @@
       <div class="rail">
         <span class="rail__when">2023 &ndash; 2025</span>
         <span class="rail__where">RoboAI Hub</span>
+        <canvas class="accent" data-accent="face" aria-hidden="true"></canvas>
+        <span class="accent__note">Landmarks the recogniser keys on</span>
       </div>
       <div class="body">
         <h3>The intelligence layer of a public humanoid robot</h3>
@@ -122,6 +124,8 @@
       <div class="rail">
         <span class="rail__when">June 2025</span>
         <span class="rail__where">MBM University</span>
+        <canvas class="accent" data-accent="hand" aria-hidden="true"></canvas>
+        <span class="accent__note">Hand pose driving the gripper</span>
       </div>
       <div class="body">
         <h3>KineLink, a gesture-controlled robotic arm</h3>
@@ -135,6 +139,8 @@
       <div class="rail">
         <span class="rail__when">November 2024</span>
         <span class="rail__where">RoboAI Hub</span>
+        <canvas class="accent" data-accent="trace" aria-hidden="true"></canvas>
+        <span class="accent__note">Two-link trace across both planes</span>
       </div>
       <div class="body">
         <h3>Servo control across the XY and XZ planes</h3>
@@ -211,6 +217,7 @@
       <h2 id="stack-h">Bench inventory</h2>
       <p class="section-note">Boards I have shipped on, and what runs on them.</p>
     </div>
+    <canvas class="accent accent--wide" data-accent="boards" aria-hidden="true"></canvas>
     <div class="inventory">
       <div class="inv">
         <h3>Boards</h3>
@@ -265,6 +272,7 @@
 </footer>
 
 <script type="module" src="js/arm.js"></script>
+<script type="module" src="js/accents.js"></script>
 <script src="js/site.js" defer></script>
 </body>
 </html>

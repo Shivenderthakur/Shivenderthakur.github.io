@@ -6,7 +6,8 @@ external library and it loads from a CDN at runtime.
 ```
 index.html          the whole page
 css/styles.css      type, colour and layout
-js/arm.js           the 3D work cell: arm, claw, draggable payload, orbit camera
+js/arm.js           the 3D cell: arm, claw, draggable payload, pick-and-place, orbit camera
+js/accents.js       four small 3D pieces beside the writing, sharing one WebGL context
 js/site.js          highlights the section you are reading in the masthead
 assets/             portrait
 ```
@@ -42,23 +43,36 @@ folder.
 
 ## The work cell
 
-The panel in the hero is a robotic cell solved in real time.
+The panel in the hero is a robotic cell you operate.
 
-- **Drag the block** anywhere on the floor, or tap the floor to send it there. The amber
-  circle is the arm's working radius and the block is clamped to it.
+- **Drag the block** anywhere on the floor, or tap the floor to send it there.
+- **Drag the amber ring** above the block to lift it into the air. A dashed line to the
+  floor shows how high it is.
+- **Let go** and the arm comes for it: approach, descend, close the claw, lift, carry it
+  across the cell, set it down on the pedestal, then clear away and return to rest.
 - **Drag the empty floor** to walk the camera around the cell.
-- Leave it alone for five seconds and it runs its own pick-and-place cycle.
+- Leave it alone and it throws the block somewhere new and fetches it again.
 
-The turret yaw comes from the block's bearing and interpolates the short way round, so the
-arm can travel through a full circle without unwinding. Shoulder and elbow angles come from
-a two-link inverse kinematics solution using the law of cosines, aimed at a point one claw
-length short of the block so the finger pads, not the wrist, end up around it. The wrist
-counter-rotates to keep the claw level. The claw opens in proportion to how far the pads
-still are from the block and shuts once they are around it.
+The turret yaw comes from the target's bearing and interpolates the short way round, so the
+arm travels through a full circle without unwinding. Shoulder and elbow angles come from a
+two-link inverse kinematics solution using the law of cosines, aimed one claw length short
+of the target so the finger pads, not the wrist, arrive around it. The wrist counter-rotates
+to keep the claw level. A small state machine drives the sequence and each step waits for
+the pads to actually arrive rather than running on a timer.
 
-Reflections come from a generated room environment through `PMREMGenerator`, with ACES
-filmic tone mapping. Pixel ratio, shadow map size, field of view and camera distance all
-scale with the panel size, so the cell stays framed from a phone to a wide desktop.
+The room is a lit cyclorama, so there is no horizon seam from any camera angle. Reflections
+come from a generated room environment through `PMREMGenerator` with ACES filmic tone
+mapping. Panel width, camera distance, field of view, pixel ratio and shadow map size all
+scale together, so the cell stays framed from a phone to a wide desktop.
+
+## The accents
+
+Four smaller pieces sit beside the writing: the face landmarks a recogniser keys on, a hand
+pose driving a gripper, a two-link arm tracing both of its working planes, and the boards
+themselves. All four share a single WebGL context. The renderer draws each one into a corner
+of one offscreen canvas and the frame is blitted into the 2D canvas on the page, so four
+moving pictures cost one GPU context rather than four. Each one only runs while it is on
+screen.
 
 With `prefers-reduced-motion` set, the unattended cycle never starts and the arm only moves
 when you drive it.
