@@ -16,7 +16,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js" } }
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  }
+}
 </script>
 </head>
 <body>
@@ -52,15 +57,16 @@
     </div>
 
     <figure class="viewport" id="viewport">
-      <canvas id="arm-canvas" aria-label="Interactive 3D model of a five-axis robotic arm that follows your pointer" role="img"></canvas>
+      <canvas id="arm-canvas" aria-label="Interactive 3D workspace. Drag the block anywhere on the floor and the robotic arm turns, reaches and closes its claw on it." role="img"></canvas>
       <figcaption class="viewport__hud" aria-hidden="true">
         <span class="hud__line"><b>J1</b><i id="j1">+000.0</i></span>
         <span class="hud__line"><b>J2</b><i id="j2">+000.0</i></span>
         <span class="hud__line"><b>J3</b><i id="j3">+000.0</i></span>
         <span class="hud__line"><b>J4</b><i id="j4">+000.0</i></span>
-        <span class="hud__line hud__mode"><b>MODE</b><i id="mode">IDLE SWEEP</i></span>
+        <span class="hud__line"><b>CLAW</b><i id="claw">OPEN</i></span>
+        <span class="hud__line hud__mode"><b>MODE</b><i id="mode">DEMO</i></span>
       </figcaption>
-      <p class="viewport__hint" id="viewport-hint">Move your pointer across the panel. The arm solves its own joint angles to reach you.</p>
+      <p class="viewport__hint" id="viewport-hint">Drag the block anywhere on the floor. The arm turns to it, reaches, and closes its claw. Drag the empty floor to walk around the cell.</p>
       <noscript><p class="viewport__fallback">This panel runs a live 3D arm. Enable JavaScript to drive it.</p></noscript>
     </figure>
   </section>

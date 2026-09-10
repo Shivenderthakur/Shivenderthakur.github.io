@@ -6,7 +6,7 @@ external library and it loads from a CDN at runtime.
 ```
 index.html          the whole page
 css/styles.css      type, colour and layout
-js/arm.js           the 3D arm: two-link inverse kinematics, base yaw, telemetry readout
+js/arm.js           the 3D work cell: arm, claw, draggable payload, orbit camera
 js/site.js          highlights the section you are reading in the masthead
 assets/             portrait
 ```
@@ -40,13 +40,25 @@ lands at `https://Shivenderthakur.github.io/<repository-name>/`.
 The `.nojekyll` file is already present, which stops GitHub from running Jekyll over the
 folder.
 
-## The arm
+## The work cell
 
-The panel in the hero is a five-axis arm solved in real time. Pointer position becomes a
-target in the arm's workspace. Base yaw comes straight from the horizontal axis. The
-shoulder and elbow angles come from a two-link inverse kinematics solution using the law of
-cosines, clamped to the arm's reach. The wrist counter-rotates to keep the gripper level.
-Joint angles are damped frame to frame and printed in the readout.
+The panel in the hero is a robotic cell solved in real time.
 
-With `prefers-reduced-motion` set, the idle sweep is switched off and the arm only moves
+- **Drag the block** anywhere on the floor, or tap the floor to send it there. The amber
+  circle is the arm's working radius and the block is clamped to it.
+- **Drag the empty floor** to walk the camera around the cell.
+- Leave it alone for five seconds and it runs its own pick-and-place cycle.
+
+The turret yaw comes from the block's bearing and interpolates the short way round, so the
+arm can travel through a full circle without unwinding. Shoulder and elbow angles come from
+a two-link inverse kinematics solution using the law of cosines, aimed at a point one claw
+length short of the block so the finger pads, not the wrist, end up around it. The wrist
+counter-rotates to keep the claw level. The claw opens in proportion to how far the pads
+still are from the block and shuts once they are around it.
+
+Reflections come from a generated room environment through `PMREMGenerator`, with ACES
+filmic tone mapping. Pixel ratio, shadow map size, field of view and camera distance all
+scale with the panel size, so the cell stays framed from a phone to a wide desktop.
+
+With `prefers-reduced-motion` set, the unattended cycle never starts and the arm only moves
 when you drive it.
