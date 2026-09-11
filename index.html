@@ -25,6 +25,10 @@
 </script>
 </head>
 <body>
+<canvas id="world" aria-label="A workshop bench holding the robotic arm and the rigs behind each project" role="img"></canvas>
+<div class="scrim" aria-hidden="true"></div>
+<noscript><p class="noscript">This page runs a live 3D workshop behind the writing. The writing reads fine without it.</p></noscript>
+
 <a class="skip" href="#work">Skip to the work</a>
 
 <header class="masthead">
@@ -42,7 +46,7 @@
 
 <main id="top">
 
-  <section class="hero">
+  <section class="hero" id="bench">
     <div class="hero__text">
       <h1>I put intelligence on hardware that has no business running it.</h1>
       <p class="lede">A humanoid robot's face recognition, its GPT-3.5 conversation engine and its
@@ -56,20 +60,19 @@
       </div>
     </div>
 
-    <figure class="viewport" id="viewport">
-      <canvas id="arm-canvas" aria-label="Interactive 3D workspace. Drag the block anywhere on the floor and the robotic arm turns, reaches and closes its claw on it." role="img"></canvas>
-      <figcaption class="viewport__hud" aria-hidden="true">
-        <span class="hud__line"><b>J1</b><i id="j1">+000.0</i></span>
-        <span class="hud__line"><b>J2</b><i id="j2">+000.0</i></span>
-        <span class="hud__line"><b>J3</b><i id="j3">+000.0</i></span>
-        <span class="hud__line"><b>J4</b><i id="j4">+000.0</i></span>
-        <span class="hud__line"><b>CLAW</b><i id="claw">OPEN</i></span>
-        <span class="hud__line hud__mode"><b>MODE</b><i id="mode">DEMO</i></span>
-      </figcaption>
-      <button class="viewport__grab" id="viewport-grab" type="button" aria-pressed="false" hidden>Take control</button>
-      <p class="viewport__hint" id="viewport-hint">Drag the block, or its ring to lift it. The arm carries it back to the pedestal. Drag the floor to move the camera.</p>
-      <noscript><p class="viewport__fallback">This panel runs a live 3D arm. Enable JavaScript to drive it.</p></noscript>
-    </figure>
+    <div class="stage-catch" id="stage-catch" aria-hidden="true"></div>
+
+    <div class="readout" aria-hidden="true">
+      <span class="hud__line"><b>J1</b><i id="j1">+000.0</i></span>
+      <span class="hud__line"><b>J2</b><i id="j2">+000.0</i></span>
+      <span class="hud__line"><b>J3</b><i id="j3">+000.0</i></span>
+      <span class="hud__line"><b>J4</b><i id="j4">+000.0</i></span>
+      <span class="hud__line"><b>CLAW</b><i id="claw">OPEN</i></span>
+      <span class="hud__line hud__mode"><b>MODE</b><i id="mode">AT REST</i></span>
+    </div>
+
+    <button class="world-grab" id="world-grab" type="button" aria-pressed="false" hidden>Take control</button>
+    <p class="world-hint" id="world-hint">Drag the block anywhere the arm reaches, or its ring to lift it. The arm carries it back to the pedestal. Scroll to walk the bench.</p>
   </section>
 
   <section class="prose" id="about" aria-labelledby="about-h">
@@ -87,8 +90,7 @@
       boards, vision models with YOLO and MediaPipe, and local language pipelines with Ollama and
       retrieval. Now I am pointing that foundation at agentic AI, at systems that plan, call tools
       and act rather than only perceive and converse.</p>
-      <figure class="exhibit exhibit--prose">
-        <canvas data-accent="uart" aria-hidden="true"></canvas>
+      <figure class="station station--prose" aria-hidden="true">
         <figcaption><b>SERIAL&nbsp;LINK</b>A UART frame written from scratch</figcaption>
       </figure>
       <figure class="portrait">
@@ -104,7 +106,7 @@
       <p class="section-note">Four builds that went outside the lab.</p>
     </div>
 
-    <article class="entry entry--lead">
+    <article class="entry entry--lead" id="work-face">
       <div class="rail">
         <span class="rail__when">2023 &ndash; 2025</span>
         <span class="rail__where">RoboAI Hub</span>
@@ -121,13 +123,12 @@
           <li><span>Press</span> 4 regional newspapers</li>
         </ul>
       </div>
-      <figure class="exhibit">
-        <canvas data-accent="face" aria-hidden="true"></canvas>
+      <figure class="station" aria-hidden="true">
         <figcaption><b>FACE&nbsp;PIPELINE</b>68 landmarks, DLIB, 1 GB Pi</figcaption>
       </figure>
     </article>
 
-    <article class="entry">
+    <article class="entry" id="work-hand">
       <div class="rail">
         <span class="rail__when">June 2025</span>
         <span class="rail__where">MBM University</span>
@@ -138,13 +139,12 @@
         the piloting loop held together, and built my own version in seven days. The arm reads hand
         gestures and mirrors them, no controller in between.</p>
       </div>
-      <figure class="exhibit">
-        <canvas data-accent="hand" aria-hidden="true"></canvas>
+      <figure class="station" aria-hidden="true">
         <figcaption><b>GESTURE&nbsp;LINK</b>21 hand landmarks driving the jaws</figcaption>
       </figure>
     </article>
 
-    <article class="entry">
+    <article class="entry" id="work-trace">
       <div class="rail">
         <span class="rail__when">November 2024</span>
         <span class="rail__where">RoboAI Hub</span>
@@ -156,8 +156,7 @@
         came from potentiometer feedback. No library existed for the link, so the protocol was
         written from scratch. The arm was later demonstrated at PROMETEO 2025 at IIT Jodhpur.</p>
       </div>
-      <figure class="exhibit">
-        <canvas data-accent="trace" aria-hidden="true"></canvas>
+      <figure class="station" aria-hidden="true">
         <figcaption><b>SERVO&nbsp;TRACE</b>Two-link path across XY and XZ</figcaption>
       </figure>
     </article>
@@ -228,8 +227,7 @@
       <h2 id="stack-h">Bench inventory</h2>
       <p class="section-note">Boards I have shipped on, and what runs on them.</p>
     </div>
-    <figure class="exhibit exhibit--wide">
-      <canvas data-accent="boards" aria-hidden="true"></canvas>
+    <figure class="station station--wide" aria-hidden="true">
       <figcaption><b>BENCH</b>Boards this work shipped on</figcaption>
     </figure>
     <div class="inventory">
@@ -285,8 +283,7 @@
   <span>Jodhpur, Rajasthan, India</span>
 </footer>
 
-<script type="module" src="js/arm.js"></script>
-<script type="module" src="js/accents.js"></script>
+<script type="module" src="js/world.js"></script>
 <script src="js/site.js" defer></script>
 </body>
 </html>

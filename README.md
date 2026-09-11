@@ -1,24 +1,22 @@
 # Portfolio — Shivender Singh Thakur
 
-**Version 1.** A light editorial page with the 3D boxed into panels: a robotic cell in the
-hero and a live window beside each project.
-
-A single static page. No build step, no dependencies to install. Three.js is the only
-external library and it loads from a CDN at runtime.
+A single static page with a 3D workshop running behind the writing. No build step and
+nothing to install. Three.js is the only external library and it loads from a CDN.
 
 ```
 index.html          the whole page
 css/styles.css      type, colour and layout
-js/arm.js           the 3D cell: arm, claw, draggable payload, pick-and-place, orbit camera
-js/accents.js       one live window per project, all sharing a single WebGL context
-js/site.js          highlights the section you are reading in the masthead
+js/world.js         the scene, the room, and the camera path the page scrolls along
+js/bench.js         the arm: inverse kinematics, claw, pick and place, the monitor
+js/stations.js      the five rigs standing along the bench
+js/site.js          marks the section you are reading in the masthead
 assets/             portrait
 ```
 
 ## Run it locally
 
-Open `index.html` directly and the ES module import will be blocked by the browser, so serve
-the folder instead:
+Open `index.html` directly and the browser blocks the ES module imports, so serve the
+folder instead:
 
 ```bash
 python3 -m http.server 8000
@@ -28,67 +26,63 @@ Then visit http://localhost:8000.
 
 ## Publish it on GitHub Pages
 
-Create a repository named `Shivenderthakur.github.io` and push this folder to it. Pages
-serves that repository at `https://Shivenderthakur.github.io` automatically.
+The repository `Shivenderthakur.github.io` is already served at
+https://Shivenderthakur.github.io. Push to `main` and the site follows within a minute.
 
 ```bash
-git remote add origin git@github.com:Shivenderthakur/Shivenderthakur.github.io.git
-git branch -M main
-git push -u origin main
+git push
 ```
 
-If you would rather use a normal repository name, push it there instead, then open
-Settings, Pages, and set the source to the `main` branch and the `/ (root)` folder. The site
-lands at `https://Shivenderthakur.github.io/<repository-name>/`.
+`.nojekyll` is present, which stops GitHub running Jekyll over the folder.
 
-The `.nojekyll` file is already present, which stops GitHub from running Jekyll over the
-folder.
+## The workshop
 
-## The bench
+The canvas is fixed to the viewport and the page scrolls over it. Each section of the
+writing is anchored to a station on one long bench, and scrolling dollies the camera from
+one to the next: the arm, the serial link, the three project rigs, the boards, and finally
+a long shot down the whole bench. Each shot aims a little to the left of its subject so the
+rig lands in the right of the frame, clear of the text, and a gradient scrim keeps the
+writing legible over whatever is behind it.
 
-The panel in the hero is a workbench: the arm, the machine it is programmed from, and
-the desk they both sit on. The monitor runs a terminal drawn frame by frame onto a canvas
-texture, showing the same joint angles and state the readout beside it shows.
+Anchors are measured from the DOM and measured again once web fonts land and whenever the
+page height changes, because a late font shifts every one of them. The camera eases on real
+elapsed time rather than a capped frame delta, so a slow device keeps up with the scroll
+instead of trailing a station behind.
 
-- **Drag the block** anywhere on the bench, or tap the bench to send it there. It can go
-  anywhere the arm can actually reach, which is a 3-DOF envelope and not a circle: the
-  amber arc that appears while you drag is the real outer edge in the arm's own plane.
-- **Drag the amber ring** above the block to lift it into the air, or tap the ring on a
-  touch screen, where a vertical drag scrolls the page instead. A dashed line to the floor
-  shows how high it is, and the block stays exactly where you leave it.
+## The arm
+
+- **Drag the block** anywhere on the bench, or click the bench to send it there.
+- **Drag the amber ring** above it to lift it into the air, or tap the ring on a touch
+  screen, where a vertical drag scrolls the page instead. A dashed line to the bench shows
+  how high it is, and the block stays exactly where you leave it.
 - **Let go** and the arm comes for it, in mid air if that is where it is: approach, descend,
-  close the claw, lift, carry it across the cell, set it down on the pedestal, then clear
+  close the claw, lift, carry it across the bench, set it down on the pedestal, then clear
   away and return to rest.
-- **Drag the empty bench** to walk the camera around it.
-- **On a touch screen**, tap "Take control" first. Until then the panel lets a vertical
-  swipe scroll the page rather than swallowing it.
-- Leave it alone and it throws the block somewhere new and fetches it again.
+- **On a touch screen**, tap "Take control" first. Until then the hero lets a vertical swipe
+  scroll the page rather than swallowing it.
 
 The turret yaw comes from the target's bearing and interpolates the short way round, so the
 arm travels through a full circle without unwinding. Shoulder and elbow angles come from a
 two-link inverse kinematics solution using the law of cosines, aimed one claw length short
 of the target so the finger pads, not the wrist, arrive around it. The wrist counter-rotates
-to keep the claw level. A small state machine drives the sequence and each step waits for
-the pads to actually arrive rather than running on a timer.
+to keep the claw level.
 
-Both the block and every goal the sequence sets are pushed onto that envelope before use,
-so the arm never chases a point it cannot touch and no step has to wait out a timeout.
+The block can go anywhere the arm can physically reach, which is a 3-DOF envelope and not a
+circle: the wrist must sit one claw length short of the target and the two links can only
+span between their limits. The amber arc that appears while you drag is the real outer edge
+in the arm's own plane. Both the block and every goal the sequence sets are pushed onto that
+envelope before use, so the arm never chases a point it cannot touch and no step has to wait
+out a timeout.
 
-The room is a lit cyclorama, so there is no horizon seam from any camera angle. Reflections
-come from a generated room environment through `PMREMGenerator` with ACES filmic tone
-mapping. Panel width, camera distance, field of view, pixel ratio and shadow map size all
-scale together, so the cell stays framed from a phone to a wide desktop.
+The monitor beside the arm is a terminal drawn frame by frame onto a canvas texture, showing
+the same joint angles and state as the readout in the corner of the page.
 
-## The project windows
+## The rigs
 
-Five live instrument windows sit through the page, dark like the hero panel so it all reads
-as one machine: a UART frame travelling down a serial line in the opening section, the
-landmarks a face recogniser keys on, a hand pose driving a gripper, a two-link arm tracing
-both of its working planes, and the boards in the inventory.
+Five smaller rigs stand further along the bench, one per section: a UART frame travelling
+down a serial line, the landmarks a face recogniser keys on, a hand pose driving a gripper,
+a two-link arm tracing both of its working planes, and the boards themselves. Each runs only
+while the camera is near it.
 
-All five share a single WebGL context. The renderer draws each one into a corner of one
-offscreen canvas and the frame is blitted into the 2D canvas on the page, so four moving
-pictures cost one GPU context rather than five. Each one runs only while it is on screen.
-
-With `prefers-reduced-motion` set, the unattended cycle never starts and the arm only moves
-when you drive it.
+With `prefers-reduced-motion` set, nothing moves on its own. The arm only moves when you
+drive it.

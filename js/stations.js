@@ -1,125 +1,72 @@
-/* One live window per project: the face pipeline, the gesture link, the
-   two-plane servo trace, and the boards themselves.
-
-   All four share a single WebGL context. The renderer draws each one into a
-   corner of one offscreen canvas and the result is blitted into the 2D canvas
-   on the page, so four moving pictures cost one GPU context, not four. */
+/* The rigs standing along the bench, one per section of the page. Each is a
+   group in the world's scene rather than a scene of its own; the stage helper
+   hands the builders a group and an unused camera so they read the same way. */
 
 import * as THREE from "three";
 
 const INK = 0x46584f;
 const STEEL = 0xb3bfb6;
-const PANEL = 0x0e1917;
 const AMBER = 0xf0a31e;
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const nodes = Array.from(document.querySelectorAll("[data-accent]"));
 
-function start() {
-  const gl = document.createElement("canvas");
-  let renderer;
-  try {
-    renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true });
-  } catch (err) {
-    nodes.forEach((n) => (n.closest(".exhibit") || n).remove());
-    console.error(err);
-    return;
-  }
+/* Where each rig stands, in metres along the bench. The arm is at zero. */
+export const PLACES = [
+  { name: "uart",   make: makeUart,   x: -8.4,  lift: 0.92, scale: 0.6,  turn: 0.22 },
+  { name: "face",   make: makeFace,   x: -15.6, lift: 1.0,  scale: 0.58, turn: 0.1 },
+  { name: "hand",   make: makeHand,   x: -22.6, lift: 0.95, scale: 0.6,  turn: -0.08 },
+  { name: "trace",  make: makeTrace,  x: -29.6, lift: 1.15, scale: 0.58, turn: 0.14 },
+  { name: "boards", make: makeBoards, x: -37.2, lift: 0.8,  scale: 0.62, turn: -0.12 }
+];
 
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  renderer.setPixelRatio(dpr);
-  renderer.setClearColor(PANEL, 1);
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.15;
+export function makeStations(scene) {
+  return PLACES.map((place) => {
+    /* an outer group stands on the bench; the rig sits inside it, scaled */
+    const stand = new THREE.Group();
+    stand.position.set(place.x, 0, 0);
+    stand.rotation.y = place.turn;
+    scene.add(stand);
 
-  const makers = { uart: makeUart, face: makeFace, hand: makeHand, trace: makeTrace, boards: makeBoards };
-  const views = [];
-  let maxW = 1;
-  let maxH = 1;
+    const plinth = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.82, 0.94, 0.18, 40),
+      new THREE.MeshStandardMaterial({ color: 0x1e2b27, roughness: 0.55, metalness: 0.45 })
+    );
+    plinth.position.y = 0.09;
+    plinth.receiveShadow = plinth.castShadow = true;
+    stand.add(plinth);
 
-  for (const el of nodes) {
-    const make = makers[el.dataset.accent];
-    if (!make) continue;
-    const ctx = el.getContext("2d");
-    if (!ctx) continue;
-    const view = make();
-    view.el = el;
-    view.ctx = ctx;
-    view.visible = false;
-    views.push(view);
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.66, 0.72, 44),
+      new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0.35, side: THREE.DoubleSide })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.185;
+    stand.add(ring);
 
-    if (typeof IntersectionObserver === "function") {
-      new IntersectionObserver(([e]) => { view.visible = e.isIntersecting; }, { rootMargin: "80px" })
-        .observe(el);
-    } else {
-      view.visible = true;
-    }
-  }
-  if (!views.length) return;
+    const built = place.make();
+    const rig = built.scene;
+    rig.position.y = place.lift;
+    rig.scale.setScalar(place.scale);
+    stand.add(rig);
 
-  function measure() {
-    maxW = 1;
-    maxH = 1;
-    for (const v of views) {
-      const r = v.el.getBoundingClientRect();
-      v.w = Math.max(1, Math.round(r.width));
-      v.h = Math.max(1, Math.round(r.height));
-      v.el.width = Math.round(v.w * dpr);
-      v.el.height = Math.round(v.h * dpr);
-      maxW = Math.max(maxW, v.w);
-      maxH = Math.max(maxH, v.h);
-      v.camera.aspect = v.w / v.h;
-      v.camera.updateProjectionMatrix();
-    }
-    renderer.setSize(maxW, maxH, false);
-  }
-
-  measure();
-  if (typeof ResizeObserver === "function") new ResizeObserver(measure).observe(document.body);
-  else window.addEventListener("resize", measure);
-
-  let prev = performance.now();
-  requestAnimationFrame(function frame(now) {
-    requestAnimationFrame(frame);
-    const dt = Math.min((now - prev) / 1000, 0.05);
-    prev = now;
-    if (document.hidden) return;
-
-    for (const v of views) {
-      if (!v.visible) continue;
-      v.update(dt, now / 1000);
-
-      renderer.setViewport(0, maxH - v.h, v.w, v.h);
-      renderer.setScissor(0, maxH - v.h, v.w, v.h);
-      renderer.setScissorTest(true);
-      renderer.clear(true, true, true);
-      renderer.render(v.scene, v.camera);
-
-      v.ctx.clearRect(0, 0, v.el.width, v.el.height);
-      v.ctx.drawImage(gl, 0, 0, Math.round(v.w * dpr), Math.round(v.h * dpr),
-                          0, 0, v.el.width, v.el.height);
-    }
+    return { name: place.name, group: stand, update: built.update, x: place.x };
   });
 }
 
-/* ------------------------------------------------------------- shared bits */
-
+/* The builders were written against a scene and a camera. They still are: the
+   scene they get is the rig's own group, and the camera is never rendered. */
 function stage(fov, dist, y) {
-  const scene = new THREE.Scene();
+  const scene = new THREE.Group();
   const camera = new THREE.PerspectiveCamera(fov, 1, 0.1, 40);
   camera.position.set(0, y, dist);
-  camera.lookAt(0, y * 0.55, 0);
 
-  scene.add(new THREE.HemisphereLight(0x9fb8ab, 0x08110f, 0.9));
-  const key = new THREE.DirectionalLight(0xfff2dc, 3.1);
-  key.position.set(2.2, 3.6, 3);
-  scene.add(key);
-  const fill = new THREE.DirectionalLight(0x7fc4b4, 0.75);
-  fill.position.set(-3.4, 1.4, -2);
+  const fill = new THREE.PointLight(0xbfe0d2, 10, 7, 2);
+  fill.position.set(1.4, 1.8, 2.4);
   scene.add(fill);
-  const rim = new THREE.DirectionalLight(AMBER, 1.5);
-  rim.position.set(-2.4, 0.6, 2.4);
-  scene.add(rim);
+
+  const warm = new THREE.PointLight(AMBER, 6, 6, 2);
+  warm.position.set(-1.7, 0.7, 1.5);
+  scene.add(warm);
 
   return { scene, camera };
 }
@@ -553,5 +500,3 @@ function makeBoards() {
   };
 }
 
-/* Declarations are all in place, so build the pieces. */
-if (nodes.length) start();

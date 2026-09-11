@@ -1,26 +1,12 @@
-/* A robotic cell you can operate.
-   Drag the block anywhere on the floor, or lift it into the air by its handle.
-   Let go and the arm comes for it: approach, descend, close the claw, lift,
-   carry it across the cell and set it down on the pedestal, then return to rest.
-   Drag the empty floor to walk the camera around the cell. */
+/* The workbench: the arm, the machine it is programmed from, and the block you
+   move around. It builds into a scene the world module owns, and is driven by
+   that module's clock rather than running a loop of its own. */
 
 import * as THREE from "three";
-import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
-const figure = document.getElementById("viewport");
-const canvas = document.getElementById("arm-canvas");
-const hint = document.getElementById("viewport-hint");
-const out = {
-  j1: document.getElementById("j1"),
-  j2: document.getElementById("j2"),
-  j3: document.getElementById("j3"),
-  j4: document.getElementById("j4"),
-  claw: document.getElementById("claw"),
-  mode: document.getElementById("mode")
-};
-
-const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const coarse = window.matchMedia("(pointer: coarse)").matches;
+export const AMBER = 0xf0a31e;
+const STEEL = 0xa8b3ac;
+const DARK = 0x33443f;
 
 /* the machine, in metres */
 const SHOULDER_Y = 0.66;
@@ -33,12 +19,11 @@ const HALF = BLOCK / 2;
 
 /* The reachable set of a claw held level: the wrist has to sit CLAW_LEN short of
    the target, and the two links can only span between these distances from the
-   shoulder. That is a 3-DOF envelope, not a circle on the floor, so the block is
-   clamped to the envelope and can go anywhere inside it. */
+   shoulder. That is a 3-DOF envelope, not a circle on the floor. */
 const D_MAX = L1 + L2 - 0.02;
 const D_MIN = Math.abs(L1 - L2) + 0.06;
 const RP_MIN = 0.06;
-const REACH_MAX = Math.sqrt(Math.max(D_MAX * D_MAX - (SHOULDER_Y - BLOCK / 2) ** 2, 0)) + CLAW_LEN;
+const REACH_MAX = Math.sqrt(Math.max(D_MAX * D_MAX - (SHOULDER_Y - HALF) ** 2, 0)) + CLAW_LEN;
 
 const GAP_OPEN = 0.46;
 const GAP_SHUT = BLOCK - 0.014;
@@ -49,66 +34,30 @@ const REST = new THREE.Vector3(0.72, 1.58, -0.3);
 const CARRY_Y = 1.06;
 const HOVER = 0.4;
 
-const AMBER = 0xf0a31e;
-const STEEL = 0xa8b3ac;
-const DARK = 0x33443f;
-
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const damp = (cur, to, k, dt) => cur + (to - cur) * (1 - Math.exp(-k * dt));
 
-let renderer, scene, camera;
+let scene, camera, reduceMotion, out;
 let turret, shoulder, elbow, wrist, fingerL, fingerR, padAnchor;
 let payload, payloadGlow, blockShadow, stem, handle, reachRing, pedestalRing, envelope;
 
-/* ------------------------------------------------------------------ boot */
+export function createBench(opts) {
+  scene = opts.scene;
+  camera = opts.camera;
+  reduceMotion = opts.reduceMotion;
+  out = opts.readout || {};
 
-function fail(err) {
-  figure.classList.add("is-broken");
-  const p = document.createElement("p");
-  p.className = "viewport__fallback";
-  p.textContent = "This panel runs a live 3D robotic cell, and your browser could not start WebGL.";
-  figure.appendChild(p);
-  if (hint) hint.remove();
-  console.error(err);
-}
-
-function boot() {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, coarse ? 1.75 : 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.12;
-
-  scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x0a1310, 10, 26);
-
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.24;
-  pmrem.dispose();
-
-  camera = new THREE.PerspectiveCamera(42, 1, 0.1, 90);
-
-  buildRoom();
+  buildMarks();
   buildDesk();
-  buildLights();
   buildArm();
   buildPedestal();
   buildPayload();
 
-  resize();
-  if (typeof ResizeObserver === "function") new ResizeObserver(resize).observe(figure);
-  else window.addEventListener("resize", resize);
-
-  if (coarse) setUpTouchControl();
-
-  bindInput();
-  startLoop();
+  return { update, pointerDown, pointerMove, pointerUp, hoverAt, group: null };
 }
 
-/* ------------------------------------------------------------------ room */
+/* ----------------------------------------------------------------- marks */
 
 function blobTexture() {
   const c = document.createElement("canvas");
@@ -122,87 +71,16 @@ function blobTexture() {
   return new THREE.CanvasTexture(c);
 }
 
-/* A cyclorama with light falling down it, so the cell reads as a room from any
-   angle instead of a dark void with a horizon line across it. */
-function wallTexture() {
-  const c = document.createElement("canvas");
-  c.width = 4; c.height = 256;
-  const ctx = c.getContext("2d");
-  const g = ctx.createLinearGradient(0, 0, 0, 256);
-  g.addColorStop(0, "#050a09");
-  g.addColorStop(0.42, "#0c1614");
-  g.addColorStop(0.8, "#1e2f2a");
-  g.addColorStop(1, "#25382f");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 4, 256);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-function buildRoom() {
-  const wall = new THREE.Mesh(
-    new THREE.CylinderGeometry(10, 10, 10, 56, 1, true),
-    new THREE.MeshBasicMaterial({ map: wallTexture(), side: THREE.BackSide, fog: true })
-  );
-  wall.position.y = 1.55;
-  scene.add(wall);
-
-  /* a horizon glow where the wall meets the floor */
-  const skirt = new THREE.Mesh(
-    new THREE.CylinderGeometry(9.95, 9.95, 0.5, 56, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0x2c4239, side: THREE.BackSide, transparent: true, opacity: 0.55, fog: true })
-  );
-  skirt.position.y = -2.3;
-  scene.add(skirt);
-
-  const floor = new THREE.Mesh(
-    new THREE.CircleGeometry(9.4, 64),
-    new THREE.MeshStandardMaterial({ color: 0x111e1b, roughness: 0.68, metalness: 0.24 })
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = -2.55;
-  floor.receiveShadow = true;
-  scene.add(floor);
-
-  const grid = new THREE.GridHelper(18, 36, 0x2f4a44, 0x1b2a26);
-  grid.position.y = -2.548;
-  grid.material.transparent = true;
-  grid.material.opacity = 0.5;
-  scene.add(grid);
-
+function buildMarks() {
   reachRing = new THREE.Mesh(
     new THREE.RingGeometry(REACH_MAX - 0.014, REACH_MAX, 96),
-    new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0.28, side: THREE.DoubleSide })
+    new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
   );
   reachRing.rotation.x = -Math.PI / 2;
-  reachRing.position.y = 0.004;
+  reachRing.position.y = 0.006;
   scene.add(reachRing);
 
-}
-
-function buildLights() {
-  scene.add(new THREE.HemisphereLight(0x8ea79b, 0x05100d, 0.3));
-
-  const key = new THREE.DirectionalLight(0xfff2dc, 3.2);
-  key.position.set(1.8, 5.6, 2.6);
-  key.castShadow = true;
-  key.shadow.mapSize.set(coarse ? 1024 : 2048, coarse ? 1024 : 2048);
-  key.shadow.camera.near = 1;
-  key.shadow.camera.far = 16;
-  key.shadow.camera.left = -5.4;
-  key.shadow.camera.right = 5.4;
-  key.shadow.camera.top = 5.4;
-  key.shadow.camera.bottom = -5.4;
-  key.shadow.bias = -0.0009;
-  key.shadow.normalBias = 0.022;
-  scene.add(key);
-
-  const fill = new THREE.DirectionalLight(0x7fc4b4, 0.65);
-  fill.position.set(-4.2, 2.4, -2.4);
-  scene.add(fill);
-
-  const warm = new THREE.PointLight(AMBER, 12, 7, 2);
+  const warm = new THREE.PointLight(AMBER, 11, 7, 2);
   warm.position.set(0.9, 1.2, 1.9);
   scene.add(warm);
 }
@@ -442,32 +320,7 @@ function buildPayload() {
 let screen = null;
 
 function buildDesk() {
-  const wood = new THREE.MeshStandardMaterial({ color: 0x3a3831, roughness: 0.78, metalness: 0.06 });
-  const under = new THREE.MeshStandardMaterial({ color: 0x2a2a25, roughness: 0.9 });
-  const steel = new THREE.MeshStandardMaterial({ color: 0x6e7a74, roughness: 0.42, metalness: 0.7 });
   const shell = new THREE.MeshStandardMaterial({ color: 0x1d2825, roughness: 0.52, metalness: 0.35 });
-
-  const top = new THREE.Mesh(roundedBox(9.4, 0.16, 4.5, 0.03), wood);
-  top.position.set(-0.7, -0.08, -0.15);
-  top.castShadow = top.receiveShadow = true;
-  scene.add(top);
-
-  const apron = new THREE.Mesh(new THREE.BoxGeometry(9.0, 0.22, 4.1), under);
-  apron.position.set(-0.7, -0.27, -0.15);
-  apron.receiveShadow = true;
-  scene.add(apron);
-
-  for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) {
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.17, 2.4, 0.17), steel);
-      leg.position.set(-0.7 + sx * 4.3, -1.38, -0.15 + sz * 1.95);
-      leg.castShadow = true;
-      scene.add(leg);
-    }
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 3.8), steel);
-    rail.position.set(-0.7 + sx * 4.3, -2.15, -0.15);
-    scene.add(rail);
-  }
 
   buildMonitor(shell);
   buildKeyboard(shell);
@@ -746,30 +599,10 @@ function clampBlock() {
   atLimit = clampToEnvelope(block);
 }
 
-/* On a touch screen a vertical drag scrolls the page, so the panel only takes
-   over the gesture once the reader asks it to. */
-function setUpTouchControl() {
-  const button = document.getElementById("viewport-grab");
-  if (!button) return;
-  button.hidden = false;
-
-  const apply = (on) => {
-    canvas.style.touchAction = on ? "none" : "pan-y";
-    figure.classList.toggle("is-controlling", on);
-    button.textContent = on ? "Release" : "Take control";
-    button.setAttribute("aria-pressed", String(on));
-    if (hint) {
-      hint.textContent = on
-        ? "Drag the block anywhere the arm can reach, up into the air included. Drag the bench to move the camera."
-        : "Take control to drag the block in three dimensions. Until then the panel lets you scroll past it.";
-    }
-  };
-
-  button.addEventListener("click", () => apply(!figure.classList.contains("is-controlling")));
-  apply(false);
-}
-
 /* ----------------------------------------------------------------- input */
+
+/* The canvas is the whole viewport and the page scrolls over it, so the world
+   forwards pointer events here with normalised device coordinates already. */
 
 const ray = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
@@ -778,111 +611,87 @@ const upright = new THREE.Plane();
 const hit = new THREE.Vector3();
 const grabOffset = new THREE.Vector3();
 
-let mode = "none";     // none | slide | lift | orbit
+let mode = "none";     // none | slide | lift
 let moved = 0;
-let lastX = 0, lastY = 0;
 
-function toNdc(e) {
-  const r = figure.getBoundingClientRect();
-  ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
-  ndc.y = 1 - ((e.clientY - r.top) / r.height) * 2;
-  return ndc;
+function pointerDown(x, y) {
+  moved = 0;
+  lastTouch = performance.now();
+  held = false;
+  wantShut = false;
+
+  ndc.set(x, y);
+  ray.setFromCamera(ndc, camera);
+
+  if (ray.intersectObject(handle, false).length) {
+    mode = "lift";
+    upright.setFromNormalAndCoplanarPoint(
+      new THREE.Vector3(camera.position.x - block.x, 0, camera.position.z - block.z).normalize(),
+      block
+    );
+    return "lift";
+  }
+
+  if (ray.intersectObject(payload, false).length) {
+    mode = "slide";
+    flat.set(new THREE.Vector3(0, 1, 0), -block.y);
+    if (ray.ray.intersectPlane(flat, hit)) grabOffset.copy(block).sub(hit);
+    else grabOffset.set(0, 0, 0);
+    return "slide";
+  }
+
+  mode = "none";
+  return "none";
 }
 
-function bindInput() {
-  canvas.addEventListener("pointerdown", (e) => {
-    canvas.setPointerCapture(e.pointerId);
-    figure.classList.add("is-driven");
-    moved = 0;
-    lastX = e.clientX;
-    lastY = e.clientY;
-    lastTouch = performance.now();
-    held = false;
-    wantShut = false;
+function pointerMove(x, y, travel) {
+  moved += travel;
+  if (mode === "none") return false;
 
-    ray.setFromCamera(toNdc(e), camera);
+  ndc.set(x, y);
+  ray.setFromCamera(ndc, camera);
 
-    if (ray.intersectObject(handle, false).length) {
-      mode = "lift";
-      upright.setFromNormalAndCoplanarPoint(
-        new THREE.Vector3(camera.position.x - block.x, 0, camera.position.z - block.z).normalize(),
-        block
-      );
-      canvas.style.cursor = "grabbing";
-      return;
+  if (mode === "slide") {
+    flat.set(new THREE.Vector3(0, 1, 0), -block.y);
+    if (ray.ray.intersectPlane(flat, hit)) {
+      block.x = hit.x + grabOffset.x;
+      block.z = hit.z + grabOffset.z;
+      clampBlock();
     }
+  } else if (mode === "lift") {
+    if (ray.ray.intersectPlane(upright, hit)) block.y = hit.y;
+  }
+  lastTouch = performance.now();
+  return true;
+}
 
-    if (ray.intersectObject(payload, false).length) {
-      mode = "slide";
-      flat.set(new THREE.Vector3(0, 1, 0), -block.y);
-      if (ray.ray.intersectPlane(flat, hit)) grabOffset.copy(block).sub(hit);
-      else grabOffset.set(0, 0, 0);
-      canvas.style.cursor = "grabbing";
-      return;
+function pointerUp(x, y) {
+  if (mode === "lift" && moved < 9) {
+    /* vertical drags scroll the page on a touch screen, so tapping the ring
+       is the way to lift the block there */
+    block.y = block.y > HALF + 0.2 ? HALF : 1.15;
+    clampBlock();
+  }
+  if (mode === "none" && moved < 9) {
+    /* a tap on the bench sends the block there */
+    ndc.set(x, y);
+    ray.setFromCamera(ndc, camera);
+    flat.set(new THREE.Vector3(0, 1, 0), -HALF);
+    if (ray.ray.intersectPlane(flat, hit)) {
+      block.set(hit.x, HALF, hit.z);
+      clampBlock();
     }
+  }
+  setState(STATE.WATCH, performance.now());
+  mode = "none";
+  lastTouch = performance.now();
+}
 
-    mode = "orbit";
-  });
-
-  canvas.addEventListener("pointermove", (e) => {
-    moved += Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY);
-    const dx = e.clientX - lastX;
-    const dy = e.clientY - lastY;
-    lastX = e.clientX;
-    lastY = e.clientY;
-
-    if (mode === "slide") {
-      ray.setFromCamera(toNdc(e), camera);
-      flat.set(new THREE.Vector3(0, 1, 0), -block.y);
-      if (ray.ray.intersectPlane(flat, hit)) {
-        block.x = hit.x + grabOffset.x;
-        block.z = hit.z + grabOffset.z;
-        clampBlock();
-      }
-      lastTouch = performance.now();
-    } else if (mode === "lift") {
-      ray.setFromCamera(toNdc(e), camera);
-      if (ray.ray.intersectPlane(upright, hit)) {
-        block.y = hit.y;
-      }
-      lastTouch = performance.now();
-    } else if (mode === "orbit") {
-      orbit.tTheta -= dx * 0.006;
-      orbit.tPhi = clamp(orbit.tPhi - dy * 0.005, 0.5, 1.42);
-      lastTouch = performance.now();
-    } else if (!coarse) {
-      ray.setFromCamera(toNdc(e), camera);
-      const over = ray.intersectObject(payload, false).length || ray.intersectObject(handle, false).length;
-      canvas.style.cursor = over ? "grab" : "move";
-    }
-  });
-
-  const release = (e) => {
-    if (mode === "orbit" && moved < 9) {
-      /* a tap on the floor throws the block there */
-      ray.setFromCamera(toNdc(e), camera);
-      flat.set(new THREE.Vector3(0, 1, 0), -HALF);
-      if (ray.ray.intersectPlane(flat, hit)) {
-        block.set(hit.x, HALF, hit.z);
-        clampBlock();
-      }
-    }
-    if (mode === "lift" && moved < 9) {
-      /* vertical drags scroll the page on a touch screen, so tapping the ring
-         is the way to lift the block there */
-      block.y = block.y > HALF + 0.2 ? HALF : 1.15;
-    }
-    if (mode !== "none") {
-      setState(STATE.WATCH, performance.now());
-    }
-    mode = "none";
-    if (!coarse) canvas.style.cursor = "move";
-    lastTouch = performance.now();
-  };
-
-  canvas.addEventListener("pointerup", release);
-  canvas.addEventListener("pointercancel", release);
-  canvas.style.cursor = coarse ? "" : "move";
+/* is the pointer over something grabbable? */
+function hoverAt(x, y) {
+  ndc.set(x, y);
+  ray.setFromCamera(ndc, camera);
+  return ray.intersectObject(payload, false).length > 0 || ray.intersectObject(handle, false).length > 0;
 }
 
 /* ----------------------------------------------------------------- solve */
@@ -997,25 +806,9 @@ function sequence(now) {
   }
 }
 
-/* ------------------------------------------------------------------ loop */
+/* ---------------------------------------------------------------- update */
 
-let running = true;
-let prev = performance.now();
-
-function startLoop() {
-  if (typeof IntersectionObserver === "function") {
-    new IntersectionObserver(([e]) => { running = e.isIntersecting; }).observe(figure);
-  }
-  document.addEventListener("visibilitychange", () => { prev = performance.now(); });
-  requestAnimationFrame(frame);
-}
-
-function frame(now) {
-  requestAnimationFrame(frame);
-  const dt = Math.min((now - prev) / 1000, 0.05);
-  prev = now;
-  if (!running || document.hidden) return;
-
+function update(now, dt) {
   padAnchor.getWorldPosition(padWorld);
   sequence(now);
 
@@ -1033,10 +826,10 @@ function frame(now) {
   blockShadow.material.opacity = 0.7 * drop;
 
   const air = block.y > HALF + 0.05 && !held;
+  handle.visible = !held;
   handle.position.set(block.x, block.y + 0.28, block.z);
   handle.rotation.z += dt * 0.9;
-  handle.visible = !held;
-  handle.material.opacity = damp(handle.material.opacity, mode === "orbit" ? 0.35 : 0.85, 6, dt);
+  handle.material.opacity = damp(handle.material.opacity, 0.85, 6, dt);
 
   stem.material.opacity = damp(stem.material.opacity, air ? 0.75 : 0, 8, dt);
   const pts = stem.geometry.attributes.position;
@@ -1054,9 +847,7 @@ function frame(now) {
   angles.a1 = damp(angles.a1, want.a1, 8.5, dt);
   angles.a2 = damp(angles.a2, want.a2, 8.5, dt);
   angles.a3 = damp(angles.a3, want.a3, 8.5, dt);
-
-  const gap = wantShut ? GAP_SHUT : GAP_OPEN;
-  angles.gap = damp(angles.gap, gap, 12, dt);
+  angles.gap = damp(angles.gap, wantShut ? GAP_SHUT : GAP_OPEN, 12, dt);
 
   turret.rotation.y = angles.yaw;
   shoulder.rotation.z = angles.a1;
@@ -1065,12 +856,12 @@ function frame(now) {
   fingerL.position.z = angles.gap / 2;
   fingerR.position.z = -angles.gap / 2;
 
+  const showing = mode === "slide" || mode === "lift";
+  showingLimit = showing;
   payloadGlow.material.opacity = damp(payloadGlow.material.opacity, held ? 0.6 : 0, 9, dt);
   pedestalRing.material.opacity = damp(pedestalRing.material.opacity, onPedestal(block) ? 0.22 : 0.6, 5, dt);
-
-  orbit.theta = damp(orbit.theta, orbit.tTheta, 6, dt);
-  orbit.phi = damp(orbit.phi, orbit.tPhi, 6, dt);
-  placeCamera();
+  reachRing.material.opacity = damp(reachRing.material.opacity, atLimit ? 0.7 : showing ? 0.36 : 0.18, 6, dt);
+  envelope.material.opacity = damp(envelope.material.opacity, showing || atLimit ? 0.42 : 0, 7, dt);
 
   readout();
   if (screen) {
@@ -1078,22 +869,9 @@ function frame(now) {
       j1: degText(wrap(angles.yaw)), j2: degText(angles.a1),
       j3: degText(angles.a2), j4: degText(angles.a3),
       claw: held ? "HOLDING" : wantShut ? "CLOSING" : "OPEN",
-      state: mode === "orbit" ? "CAMERA" : state
+      state
     });
   }
-  renderer.render(scene, camera);
-}
-
-const AIM = new THREE.Vector3(-0.8, 0.78, 0.05);
-
-function placeCamera() {
-  const r = orbit.radius;
-  camera.position.set(
-    AIM.x + r * Math.sin(orbit.phi) * Math.cos(orbit.theta),
-    AIM.y + r * Math.cos(orbit.phi),
-    AIM.z + r * Math.sin(orbit.phi) * Math.sin(orbit.theta)
-  );
-  camera.lookAt(AIM);
 }
 
 let showingLimit = false;
@@ -1107,7 +885,7 @@ function readout() {
   deg(out.j3, angles.a2);
   deg(out.j4, angles.a3);
   if (out.claw) out.claw.textContent = held ? "HOLDING" : wantShut ? "CLOSING" : "OPEN";
-  if (out.mode) out.mode.textContent = mode === "orbit" ? "CAMERA" : atLimit && showingLimit ? "AT REACH LIMIT" : state;
+  if (out.mode) out.mode.textContent = atLimit && showingLimit ? "AT REACH LIMIT" : state;
 }
 
 function degText(rad) {
@@ -1120,30 +898,3 @@ function deg(el, rad) {
   const v = (rad * 180) / Math.PI;
   el.textContent = (v < 0 ? "-" : "+") + Math.abs(v).toFixed(1).padStart(5, "0");
 }
-
-/* ------------------------------------------------------------------ size */
-
-/* Fit the cell to whatever shape the panel happens to be. */
-function resize() {
-  const w = figure.clientWidth;
-  const h = figure.clientHeight;
-  if (!w || !h) return;
-
-  renderer.setSize(w, h, false);
-  const a = w / h;
-  camera.aspect = a;
-  camera.fov = clamp(42 + (1.4 - a) * 9, 42, 52);
-
-  const fovY = (camera.fov * Math.PI) / 180;
-  const tanY = Math.tan(fovY / 2);
-  const tanX = tanY * a;
-  const need = Math.max(3.0 / tanX, 2.05 / tanY);
-  orbit.radius = clamp(need * 1.04, 5.4, 11);
-
-  camera.updateProjectionMatrix();
-  placeCamera();
-  renderer.render(scene, camera);
-}
-
-/* Declarations are all in place, so start the cell. */
-try { boot(); } catch (err) { fail(err); }
