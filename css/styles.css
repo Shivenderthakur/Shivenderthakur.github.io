@@ -202,6 +202,36 @@ a:hover { text-decoration-color: var(--phosphor); }
   transition: opacity 500ms ease;
 }
 .viewport.is-driven .viewport__hint { opacity: 0; }
+.viewport.is-controlling .viewport__hint { opacity: 1; }
+
+/* narrow panels: keep the readout from crowding the machine */
+@media (max-width: 40rem) {
+  .viewport__hud { font-size: 0.58rem; gap: 0.16rem; left: 0.8rem; top: 0.8rem; }
+  .hud__line b { width: 2rem; }
+  .viewport__hint { max-width: 13rem; font-size: 0.68rem; right: 0.8rem; bottom: 3.3rem; }
+  .viewport__grab { left: 0.8rem; bottom: 0.8rem; font-size: 0.76rem; padding: 0.42rem 0.8rem; }
+}
+
+.viewport__grab {
+  position: absolute;
+  left: 1.15rem;
+  bottom: 1.15rem;
+  z-index: 2;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--vellum);
+  background: rgba(14, 25, 23, 0.75);
+  border: 1px solid rgba(240, 163, 30, 0.55);
+  padding: 0.5rem 0.95rem;
+  cursor: pointer;
+}
+
+.viewport.is-controlling .viewport__grab {
+  background: var(--phosphor);
+  border-color: var(--phosphor);
+  color: var(--viewport);
+}
 
 .viewport__fallback {
   position: absolute; inset: auto 1.15rem 1.15rem;
@@ -474,6 +504,12 @@ footer {
   }
 }
 
+.exhibit--prose {
+  aspect-ratio: 16 / 9;
+  max-width: none;
+  margin: 2rem 0 0;
+}
+
 .exhibit--wide {
   aspect-ratio: 16 / 6;
   width: 100%;
@@ -482,5 +518,11 @@ footer {
 }
 
 @media (max-width: 61.99rem) {
-  .exhibit--wide { aspect-ratio: 16 / 9; }
+  .exhibit--prose {
+  aspect-ratio: 16 / 9;
+  max-width: none;
+  margin: 2rem 0 0;
+}
+
+.exhibit--wide { aspect-ratio: 16 / 9; }
 }

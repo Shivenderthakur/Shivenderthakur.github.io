@@ -32,7 +32,7 @@ function start() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.15;
 
-  const makers = { face: makeFace, hand: makeHand, trace: makeTrace, boards: makeBoards };
+  const makers = { uart: makeUart, face: makeFace, hand: makeHand, trace: makeTrace, boards: makeBoards };
   const views = [];
   let maxW = 1;
   let maxH = 1;
@@ -134,6 +134,101 @@ function wires(points, pairs, color, opacity) {
   for (const [a, b] of pairs) list.push(points[a], points[b]);
   const g = new THREE.BufferGeometry().setFromPoints(list);
   return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
+}
+
+/* ------------------------------ 0. the link written where none existed */
+
+/* Two boards and the serial line between them, with the frame travelling along
+   it: start bit low, eight data bits, stop bit high. */
+function makeUart() {
+  const { scene, camera } = stage(30, 5.4, 0.5);
+  camera.position.set(0, 0.55, 4.5);
+  camera.lookAt(0, -0.05, 0);
+
+  const group = new THREE.Group();
+  scene.add(group);
+
+  const pcb = new THREE.MeshStandardMaterial({ color: 0x27564a, roughness: 0.66, metalness: 0.2 });
+  const chip = new THREE.MeshStandardMaterial({ color: 0x27302d, roughness: 0.5, metalness: 0.45 });
+  const pin = new THREE.MeshStandardMaterial({ color: 0xc8ab63, roughness: 0.35, metalness: 0.9 });
+
+  for (const [x, w, d] of [[-1.55, 1.0, 0.66], [1.55, 0.76, 0.5]]) {
+    const card = new THREE.Group();
+    card.position.set(x, -0.62, 0);
+    card.rotation.set(0.22, x < 0 ? 0.35 : -0.35, 0);
+    group.add(card);
+
+    const board = new THREE.Mesh(new THREE.BoxGeometry(w, 0.04, d), pcb);
+    card.add(board);
+    const soc = new THREE.Mesh(new THREE.BoxGeometry(w * 0.34, 0.07, d * 0.4), chip);
+    soc.position.y = 0.055;
+    card.add(soc);
+    const header = new THREE.Mesh(new THREE.BoxGeometry(w * 0.62, 0.08, 0.06), pin);
+    header.position.set(0, 0.06, d / 2 - 0.07);
+    card.add(header);
+  }
+
+  const wire = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-1.35, -0.6, 0.2),
+    new THREE.Vector3(-0.7, -1.05, 0.35),
+    new THREE.Vector3(0.7, -1.05, 0.35),
+    new THREE.Vector3(1.35, -0.6, 0.2)
+  ]);
+  group.add(new THREE.Mesh(
+    new THREE.TubeGeometry(wire, 40, 0.028, 8, false),
+    new THREE.MeshStandardMaterial({ color: INK, roughness: 0.7, metalness: 0.2 })
+  ));
+
+  /* the frame itself, drawn as the line a scope would show */
+  const BITS = 10;
+  const STEPS = 8;
+  const N = BITS * STEPS + 1;
+  const trace = new Float32Array(N * 3);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(trace, 3));
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: AMBER }));
+  line.position.y = 0.55;
+  group.add(line);
+
+  const pulse = new THREE.Mesh(
+    new THREE.SphereGeometry(0.07, 12, 10),
+    new THREE.MeshBasicMaterial({ color: AMBER })
+  );
+  group.add(pulse);
+
+  const rail = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.PlaneGeometry(3.6, 0.82)),
+    new THREE.LineBasicMaterial({ color: 0x7f9189, transparent: true, opacity: 0.35 })
+  );
+  rail.position.y = 0.55;
+  group.add(rail);
+
+  let word = 0b10110010;
+  let lastFrame = -1;
+
+  return {
+    scene, camera,
+    update(dt, t) {
+      const cycle = reduceMotion ? 0.3 : (t * 0.35) % 1;
+      const nth = Math.floor(t * 0.35);
+      if (nth !== lastFrame) { lastFrame = nth; word = Math.floor(Math.random() * 256); }
+
+      for (let i = 0; i < N; i++) {
+        const at = i / STEPS;
+        const bit = Math.min(Math.floor(at), BITS - 1);
+        /* start bit low, eight data bits, stop bit high */
+        const high = bit === 0 ? 0 : bit === 9 ? 1 : (word >> (bit - 1)) & 1;
+        trace[i * 3] = -1.75 + (i / (N - 1)) * 3.5;
+        trace[i * 3 + 1] = high ? 0.3 : -0.3;
+        trace[i * 3 + 2] = 0;
+      }
+      geo.attributes.position.needsUpdate = true;
+
+      const at = wire.getPointAt(cycle);
+      pulse.position.copy(at);
+      group.rotation.y = reduceMotion ? 0.2 : Math.sin(t * 0.3) * 0.35;
+    }
+  };
 }
 
 /* ------------------------------------------------- 1. the face pipeline */

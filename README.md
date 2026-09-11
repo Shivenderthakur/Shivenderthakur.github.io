@@ -41,18 +41,24 @@ lands at `https://Shivenderthakur.github.io/<repository-name>/`.
 The `.nojekyll` file is already present, which stops GitHub from running Jekyll over the
 folder.
 
-## The work cell
+## The bench
 
-The panel in the hero is a robotic cell you operate.
+The panel in the hero is a workbench: the arm, the machine it is programmed from, and
+the desk they both sit on. The monitor runs a terminal drawn frame by frame onto a canvas
+texture, showing the same joint angles and state the readout beside it shows.
 
-- **Drag the block** anywhere on the floor, or tap the floor to send it there.
+- **Drag the block** anywhere on the bench, or tap the bench to send it there. It can go
+  anywhere the arm can actually reach, which is a 3-DOF envelope and not a circle: the
+  amber arc that appears while you drag is the real outer edge in the arm's own plane.
 - **Drag the amber ring** above the block to lift it into the air, or tap the ring on a
   touch screen, where a vertical drag scrolls the page instead. A dashed line to the floor
   shows how high it is, and the block stays exactly where you leave it.
 - **Let go** and the arm comes for it, in mid air if that is where it is: approach, descend,
   close the claw, lift, carry it across the cell, set it down on the pedestal, then clear
   away and return to rest.
-- **Drag the empty floor** to walk the camera around the cell.
+- **Drag the empty bench** to walk the camera around it.
+- **On a touch screen**, tap "Take control" first. Until then the panel lets a vertical
+  swipe scroll the page rather than swallowing it.
 - Leave it alone and it throws the block somewhere new and fetches it again.
 
 The turret yaw comes from the target's bearing and interpolates the short way round, so the
@@ -62,6 +68,9 @@ of the target so the finger pads, not the wrist, arrive around it. The wrist cou
 to keep the claw level. A small state machine drives the sequence and each step waits for
 the pads to actually arrive rather than running on a timer.
 
+Both the block and every goal the sequence sets are pushed onto that envelope before use,
+so the arm never chases a point it cannot touch and no step has to wait out a timeout.
+
 The room is a lit cyclorama, so there is no horizon seam from any camera angle. Reflections
 come from a generated room environment through `PMREMGenerator` with ACES filmic tone
 mapping. Panel width, camera distance, field of view, pixel ratio and shadow map size all
@@ -69,14 +78,14 @@ scale together, so the cell stays framed from a phone to a wide desktop.
 
 ## The project windows
 
-Each project in Work gets its own live instrument window, dark like the hero panel so the
-page reads as one machine: the landmarks a face recogniser keys on, a hand pose driving a
-gripper, and a two-link arm tracing both of its working planes. The inventory gets a wide
-one showing the boards.
+Five live instrument windows sit through the page, dark like the hero panel so it all reads
+as one machine: a UART frame travelling down a serial line in the opening section, the
+landmarks a face recogniser keys on, a hand pose driving a gripper, a two-link arm tracing
+both of its working planes, and the boards in the inventory.
 
-All four share a single WebGL context. The renderer draws each one into a corner of one
+All five share a single WebGL context. The renderer draws each one into a corner of one
 offscreen canvas and the frame is blitted into the 2D canvas on the page, so four moving
-pictures cost one GPU context rather than four. Each one runs only while it is on screen.
+pictures cost one GPU context rather than five. Each one runs only while it is on screen.
 
 With `prefers-reduced-motion` set, the unattended cycle never starts and the arm only moves
 when you drive it.
