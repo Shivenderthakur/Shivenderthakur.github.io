@@ -1,5 +1,8 @@
 # Portfolio — Shivender Singh Thakur
 
+**Version 1.** A light editorial page with the 3D boxed into panels: a robotic cell in the
+hero and a live window beside each project.
+
 A single static page. No build step, no dependencies to install. Three.js is the only
 external library and it loads from a CDN at runtime.
 
