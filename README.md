@@ -1,5 +1,8 @@
 # Portfolio — Shivender Singh Thakur
 
+**Version 2.** The whole page now runs inside one 3D workshop. Version 1 was a light
+editorial layout with the 3D boxed into panels.
+
 A single static page with a 3D workshop running behind the writing. No build step and
 nothing to install. Three.js is the only external library and it loads from a CDN.
 
