@@ -103,7 +103,7 @@ a:hover { text-decoration-color: var(--phosphor); }
   justify-content: space-between;
   padding: 1.35rem var(--gutter) 1.15rem;
   border-bottom: 1px solid var(--rule);
-  background: linear-gradient(to bottom, rgba(7, 13, 12, 0.96), rgba(7, 13, 12, 0.86));
+  background: linear-gradient(to bottom, rgba(7, 13, 12, 0.98), rgba(7, 13, 12, 0.94));
   backdrop-filter: blur(9px);
 }
 
@@ -290,7 +290,11 @@ h2 {
 
 /* ---------- about ---------- */
 
-.prose { display: grid; gap: 1.25rem clamp(1.5rem, 4vw, 3rem); }
+.prose {
+  display: grid;
+  gap: 1.25rem clamp(1.5rem, 4vw, 3rem);
+  grid-template-columns: minmax(0, 1fr);
+}
 @media (min-width: 62rem) {
   .prose { grid-template-columns: var(--rail-w) minmax(0, 1fr); }
 }
@@ -410,7 +414,7 @@ h2 {
 .inventory {
   display: grid;
   gap: clamp(1.75rem, 3.5vw, 3rem);
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
   max-width: 46rem;
 }
 .inv h3 {
@@ -490,3 +494,169 @@ body.no-world .station { display: none; }
   #world, .scrim, .masthead nav, .skip, .readout, .world-hint, .world-grab, .station { display: none; }
   html, body { background: #fff; color: #000; }
 }
+
+/* ---------- evidence: press clippings and event photographs ---------- */
+
+/* Desaturated at rest so a row of scans reads as a citation index rather than
+   a scrapbook. Nothing moves on hover; only the colour returns. */
+.evidence {
+  margin: 1.75rem 0 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule-sub);
+}
+
+.evidence > figcaption {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  color: var(--phosphor);
+  margin-bottom: 0.85rem;
+}
+
+.evidence ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.1rem;
+}
+
+.evidence li { max-width: 8.5rem; }
+
+.evidence a {
+  display: block;
+  border: 1px solid var(--rule-sub);
+  background: #0b1412;
+}
+
+.evidence img {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: grayscale(1) contrast(1.06) brightness(0.86);
+  transition: filter 200ms ease;
+}
+
+.evidence a:hover img,
+.evidence a:focus-visible img { filter: grayscale(0.25) brightness(1); }
+.evidence a:hover, .evidence a:focus-visible { border-color: rgba(240, 163, 30, 0.55); }
+
+.evidence li span {
+  display: block;
+  margin-top: 0.5rem;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.evidence__note {
+  margin: 1rem 0 0;
+  max-width: 30rem;
+  font-family: var(--sans);
+  font-size: 0.79rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* ---------- repository links under a build ---------- */
+
+.repo {
+  margin: 1.1rem 0 0 !important;
+  font-family: var(--mono);
+  font-size: 0.76rem;
+}
+.repo a { color: var(--phosphor); text-decoration-color: rgba(240, 163, 30, 0.4); }
+
+/* repository names run long and underscores are not break opportunities */
+.body a[href*="github.com"] { overflow-wrap: anywhere; }
+
+/* ---------- certification list ---------- */
+
+.certs__lede {
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0 0 0.85rem;
+}
+
+.certs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: 40rem;
+  columns: 2;
+  column-gap: 2.5rem;
+}
+.certs li {
+  break-inside: avoid;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 0.55rem;
+}
+.certs b { font-family: var(--sans); font-weight: 600; font-size: 0.86rem; color: var(--phosphor); }
+
+@media (max-width: 44rem) { .certs { columns: 1; } }
+
+/* ---------- toolchain ---------- */
+
+.tool-h3 {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-stretch: 108%;
+  letter-spacing: -0.02em;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+#toolchain .prose { margin-bottom: clamp(2rem, 4vw, 3rem); }
+#toolchain .prose:last-child { margin-bottom: 0; }
+
+/* Names set in this page's own type. Several of these marks may not be redrawn
+   or restyled under their owners' rules, so none of them are reproduced. */
+.tools {
+  list-style: none;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.9rem 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+  max-width: 34rem;
+}
+
+.tools li { border-top: 1px solid var(--rule-sub); padding-top: 0.6rem; }
+
+.tools a {
+  display: block;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 1rem;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.tools a:hover, .tools a:focus-visible { border-bottom-color: var(--phosphor); }
+
+.tools span {
+  display: block;
+  margin-top: 0.15rem;
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.tools__note {
+  margin: 2.4rem 0 0;
+  max-width: 30rem;
+  font-family: var(--sans);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.parts--row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+}
+.parts--row li { line-height: 1.6; }

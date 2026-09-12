@@ -4,3 +4,6 @@
 .DS_Store
 Thumbs.db
 node_modules/
+
+# The LinkedIn export is source material, not something to publish.
+data/

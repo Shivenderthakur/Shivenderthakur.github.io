@@ -3,6 +3,7 @@
    hands the builders a group and an unused camera so they read the same way. */
 
 import * as THREE from "three";
+import { roundedBox, hub } from "./bench.js";
 
 const INK = 0x46584f;
 const STEEL = 0xb3bfb6;
@@ -13,10 +14,13 @@ const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").match
 /* Where each rig stands, in metres along the bench. The arm is at zero. */
 export const PLACES = [
   { name: "uart",   make: makeUart,   x: -8.4,  lift: 0.92, scale: 0.6,  turn: 0.22 },
-  { name: "face",   make: makeFace,   x: -15.6, lift: 1.0,  scale: 0.58, turn: 0.1 },
-  { name: "hand",   make: makeHand,   x: -22.6, lift: 0.95, scale: 0.6,  turn: -0.08 },
-  { name: "trace",  make: makeTrace,  x: -29.6, lift: 1.15, scale: 0.58, turn: 0.14 },
-  { name: "boards", make: makeBoards, x: -37.2, lift: 0.8,  scale: 0.62, turn: -0.12 }
+  { name: "sprint", make: makeSprint, x: -15.6, lift: 0.6,  scale: 0.55, turn: 0.16 },
+  { name: "face",   make: makeFace,   x: -22.8, lift: 1.0,  scale: 0.58, turn: 0.1 },
+  { name: "roster", make: makeRoster, x: -30.0, lift: 1.02, scale: 0.52, turn: -0.1 },
+  { name: "hand",   make: makeHand,   x: -37.2, lift: 0.95, scale: 0.6,  turn: -0.08 },
+  { name: "trace",  make: makeTrace,  x: -44.4, lift: 1.15, scale: 0.58, turn: 0.14 },
+  { name: "boards", make: makeBoards, x: -51.6, lift: 0.8,  scale: 0.62, turn: -0.12 },
+  { name: "props",  make: makeProps,  x: -58.8, lift: 0.2,  scale: 0.5,  turn: 0.2 }
 ];
 
 export function makeStations(scene) {
@@ -500,3 +504,370 @@ function makeBoards() {
   };
 }
 
+
+/* ------------------------------------ 5. the sprint, and its ramp */
+
+/* Two dials on one bench. The near one is a field next to tech: the arm
+   completes a lap and every day-tick lights. The far one is a field a long way
+   from tech: the same seven ticks, geared slower, because the reading comes
+   first. Behind them a scatter of points orders itself into a lattice as the
+   near arm sweeps. */
+function makeSprint() {
+  const { scene, camera } = stage(32, 5.4, 0.6);
+
+  const steel = new THREE.MeshStandardMaterial({ color: STEEL, roughness: 0.38, metalness: 0.4 });
+  const body = new THREE.MeshStandardMaterial({ color: 0x24322d, roughness: 0.62, metalness: 0.3 });
+  const glow = new THREE.MeshBasicMaterial({ color: AMBER });
+
+  function dial(radius, x) {
+    const g = new THREE.Group();
+    g.position.x = x;
+    scene.add(g);
+
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.07, 44), body);
+    g.add(face);
+
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.022, 8, 48), steel);
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = 0.04;
+    g.add(rim);
+
+    const ticks = [];
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2 - Math.PI / 2;
+      const mat = new THREE.MeshStandardMaterial({ color: 0x3c4b45, roughness: 0.7, metalness: 0.2 });
+      const t = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.05, 0.17), mat);
+      t.position.set(Math.cos(a) * (radius - 0.15), 0.06, Math.sin(a) * (radius - 0.15));
+      t.rotation.y = -a;
+      g.add(t);
+      ticks.push(t);
+    }
+
+    const spin = new THREE.Group();
+    spin.position.y = 0.1;
+    g.add(spin);
+
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(radius - 0.1, 0.035, 0.05), steel);
+    arm.position.x = (radius - 0.1) / 2;
+    spin.add(arm);
+    spin.add(new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.07, 20), steel));
+
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 10), glow);
+    tip.position.x = radius - 0.12;
+    spin.add(tip);
+
+    return { spin, ticks };
+  }
+
+  const near = dial(0.76, -0.95);
+  const far = dial(1.0, 1.05);
+
+  /* reading turning into structure */
+  const N = 44;
+  const from = [];
+  const to = [];
+  for (let i = 0; i < N; i++) {
+    from.push(new THREE.Vector3((Math.random() - 0.5) * 3.6, 0.55 + Math.random() * 1.3, (Math.random() - 0.5) * 1.1));
+    to.push(new THREE.Vector3(-1.5 + (i % 11) * 0.3, 0.8 + Math.floor(i / 11) * 0.26, 0));
+  }
+  const live = from.map((v) => v.clone());
+  const cloud = dots(live, 0.055, AMBER);
+  scene.add(cloud);
+  const pos = cloud.geometry.attributes.position;
+
+  function light(ticks, reached) {
+    ticks.forEach((t, i) => {
+      const on = i < reached;
+      t.material.color.setHex(on ? 0xf0a31e : 0x3c4b45);
+      t.material.emissive?.setHex(on ? 0x3a2705 : 0x000000);
+    });
+  }
+
+  return {
+    scene, camera,
+    update(dt, t) {
+      const cycle = reduceMotion ? 0.45 : (t * 0.16) % 1;
+      near.spin.rotation.y = -cycle * Math.PI * 2;
+      far.spin.rotation.y = -cycle * Math.PI * 2 * 0.34;
+
+      light(near.ticks, Math.floor(cycle * 7) + 1);
+      light(far.ticks, Math.floor(cycle * 7 * 0.34) + 1);
+
+      const k = cycle < 0.5 ? cycle * 2 : 1;
+      for (let i = 0; i < N; i++) {
+        live[i].lerpVectors(from[i], to[i], k);
+        pos.setXYZ(i, live[i].x, live[i].y, live[i].z);
+      }
+      pos.needsUpdate = true;
+    }
+  };
+}
+
+/* ------------------------------- 6. one face, one row, no cloud */
+
+/* A wall of name plates, one lighting at a time as a face is recognised in
+   front of it, and a ledger underneath appending a row per pass. */
+function makeRoster() {
+  const { scene, camera } = stage(32, 5.2, 0.5);
+
+  const COLS = 4;
+  const ROWS = 3;
+  const COUNT = COLS * ROWS;
+
+  const plates = new THREE.InstancedMesh(
+    roundedBox(0.42, 0.52, 0.035, 0.02),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.3 }),
+    COUNT
+  );
+  plates.position.set(0.55, 0.2, 0);
+  plates.rotation.x = -0.12;
+  scene.add(plates);
+
+  const m = new THREE.Matrix4();
+  const cold = new THREE.Color(0x51655d);
+  const hot = new THREE.Color(AMBER);
+  for (let i = 0; i < COUNT; i++) {
+    m.makeTranslation(-0.75 + (i % COLS) * 0.5, 0.62 - Math.floor(i / COLS) * 0.6, 0);
+    plates.setMatrixAt(i, m);
+    plates.setColorAt(i, cold);
+  }
+  plates.instanceMatrix.needsUpdate = true;
+
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.5, 16),
+    new THREE.MeshStandardMaterial({ color: INK, roughness: 0.5, metalness: 0.4 }));
+  post.position.set(0.55, -0.3, -0.18);
+  scene.add(post);
+
+  /* the camera that is doing the looking */
+  const rig = new THREE.Group();
+  rig.position.set(-1.5, 0.1, 0.25);
+  rig.rotation.y = 0.5;
+  scene.add(rig);
+  rig.add(new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 1.0, 14),
+    new THREE.MeshStandardMaterial({ color: INK, roughness: 0.5, metalness: 0.45 })));
+  const cam = new THREE.Mesh(roundedBox(0.3, 0.22, 0.24, 0.04),
+    new THREE.MeshStandardMaterial({ color: 0x30403a, roughness: 0.45, metalness: 0.5 }));
+  cam.position.y = 0.58;
+  rig.add(cam);
+  const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.1, 18),
+    new THREE.MeshStandardMaterial({ color: 0x0d1513, roughness: 0.2, metalness: 0.8 }));
+  lens.rotation.z = Math.PI / 2;
+  lens.position.set(0.18, 0.58, 0);
+  rig.add(lens);
+  const led = new THREE.Mesh(new THREE.SphereGeometry(0.026, 10, 8), new THREE.MeshBasicMaterial({ color: AMBER }));
+  led.position.set(0.1, 0.68, 0.12);
+  rig.add(led);
+
+  /* the landmarks it keys on, floating where the face would be */
+  const plan = [[-0.13, 0.16], [0.13, 0.16], [-0.2, 0.02], [0.2, 0.02],
+                [0, -0.06], [-0.12, -0.2], [0.12, -0.2], [0, -0.3]];
+  const marks = plan.map(([x, y]) => new THREE.Vector3(x - 0.55, y + 0.28, 0.35));
+  const cloud = dots(marks, 0.07, AMBER);
+  scene.add(cloud);
+  scene.add(wires(marks, [[0, 1], [2, 4], [3, 4], [5, 6], [5, 7], [6, 7]], STEEL, 0.5));
+
+  /* the session report writing itself */
+  const rows = [];
+  for (let i = 0; i < 5; i++) {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.03, 0.02),
+      new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0 }));
+    bar.position.set(0.5, -0.72 - i * 0.11, 0.2);
+    scene.add(bar);
+    rows.push(bar);
+  }
+
+  let lastSeat = -1;
+
+  return {
+    scene, camera,
+    update(dt, t) {
+      const step = reduceMotion ? 2 : Math.floor(t * 0.8) % COUNT;
+      if (step !== lastSeat) {
+        lastSeat = step;
+        for (let i = 0; i < COUNT; i++) plates.setColorAt(i, i === step ? hot : cold);
+        if (plates.instanceColor) plates.instanceColor.needsUpdate = true;
+      }
+
+      const seat = plates.geometry.boundingSphere ? 0 : 0;
+      cloud.position.x = seat + Math.sin(t * 0.8) * 0.04;
+      led.visible = reduceMotion ? true : Math.floor(t * 2) % 2 === 0;
+
+      rows.forEach((bar, i) => {
+        const want = reduceMotion ? 0.5 : ((Math.floor(t * 0.8) - i) % 6 >= 0 ? 0.55 - i * 0.09 : 0);
+        bar.material.opacity += (Math.max(want, 0) - bar.material.opacity) * Math.min(dt * 4, 1);
+      });
+    }
+  };
+}
+
+/* --------------------------- 7. where the work actually happens */
+
+/* The editors, represented as the bench they run on rather than as anybody's
+   trademark: a terminal with a live cursor, a keyboard, a breadboard, calipers,
+   a soldering iron and a stack of notebooks. */
+function makeProps() {
+  const { scene, camera } = stage(34, 6.4, 0.7);
+
+  const steel = new THREE.MeshStandardMaterial({ color: STEEL, roughness: 0.38, metalness: 0.45 });
+  const shell = new THREE.MeshStandardMaterial({ color: 0x27332f, roughness: 0.5, metalness: 0.35 });
+  const glow = new THREE.MeshBasicMaterial({ color: AMBER });
+
+  /* --- the terminal, with a cursor that costs one redraw per blink --- */
+  const term = makeTerminal();
+  const head = new THREE.Group();
+  head.position.set(-0.55, 0.95, -0.35);
+  head.rotation.y = 0.3;
+  scene.add(head);
+
+  const bezel = new THREE.Mesh(roundedBox(1.62, 1.02, 0.08, 0.035), shell);
+  head.add(bezel);
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.9),
+    new THREE.MeshBasicMaterial({ map: term.texture, toneMapped: false }));
+  glass.position.z = 0.045;
+  head.add(glass);
+
+  const neck = new THREE.Mesh(roundedBox(0.13, 0.6, 0.14, 0.03), shell);
+  neck.position.set(-0.55, 0.38, -0.35);
+  neck.rotation.y = 0.3;
+  scene.add(neck);
+  const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.44, 0.05, 28), shell);
+  foot.position.set(-0.55, 0.09, -0.35);
+  scene.add(foot);
+
+  /* --- the keyboard --- */
+  const board = new THREE.Group();
+  board.position.set(-0.5, 0.11, 0.72);
+  board.rotation.y = 0.3;
+  scene.add(board);
+  board.add(new THREE.Mesh(roundedBox(1.34, 0.08, 0.46, 0.02), shell));
+
+  const CAPS = 14 * 4;
+  const caps = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(0.07, 0.028, 0.07),
+    new THREE.MeshStandardMaterial({ color: 0x3a4a44, roughness: 0.8, metalness: 0.08 }),
+    CAPS
+  );
+  const km = new THREE.Matrix4();
+  for (let i = 0; i < CAPS; i++) {
+    km.makeTranslation(-0.6 + (i % 14) * 0.093, 0.062, -0.14 + Math.floor(i / 14) * 0.095);
+    caps.setMatrixAt(i, km);
+  }
+  caps.instanceMatrix.needsUpdate = true;
+  board.add(caps);
+
+  /* --- breadboard and jumpers --- */
+  const bb = new THREE.Group();
+  bb.position.set(1.15, 0.1, 0.5);
+  bb.rotation.y = -0.35;
+  scene.add(bb);
+  bb.add(new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.07, 0.44),
+    new THREE.MeshStandardMaterial({ color: 0xd8d6cb, roughness: 0.85, metalness: 0.04 })));
+  for (let i = 0; i < 4; i++) {
+    const a = new THREE.Vector3(-0.26 + i * 0.14, 0.05, -0.14);
+    const b = new THREE.Vector3(-0.1 + i * 0.12, 0.05, 0.16);
+    const curve = new THREE.CatmullRomCurve3([a, a.clone().lerp(b, 0.5).setY(0.22 + i * 0.02), b]);
+    const wire = new THREE.Mesh(new THREE.TubeGeometry(curve, 18, 0.014, 6, false),
+      new THREE.MeshStandardMaterial({ color: [0xc4452f, 0xd8a13a, 0x3f7f6a, 0x2f4f7a][i], roughness: 0.6 }));
+    bb.add(wire);
+  }
+
+  /* --- calipers --- */
+  const cal = new THREE.Group();
+  cal.position.set(1.0, 0.09, -0.5);
+  cal.rotation.set(0, -0.8, 0);
+  scene.add(cal);
+  cal.add(new THREE.Mesh(roundedBox(1.15, 0.045, 0.09, 0.018), steel));
+  const fixed = new THREE.Mesh(roundedBox(0.07, 0.045, 0.3, 0.015), steel);
+  fixed.position.set(-0.52, 0.03, 0.16);
+  cal.add(fixed);
+  const slide = new THREE.Mesh(roundedBox(0.13, 0.05, 0.3, 0.015), steel);
+  slide.position.set(-0.1, 0.03, 0.16);
+  cal.add(slide);
+
+  /* --- soldering iron in its stand --- */
+  const iron = new THREE.Group();
+  iron.position.set(-1.55, 0.1, 0.25);
+  iron.rotation.set(0, 0.5, 0.42);
+  scene.add(iron);
+  iron.add(new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.5, 16),
+    new THREE.MeshStandardMaterial({ color: 0x2b3a35, roughness: 0.65, metalness: 0.2 })));
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.03, 0.34, 12), steel);
+  shaft.position.y = 0.4;
+  iron.add(shaft);
+  const tipMesh = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.1, 10), glow);
+  tipMesh.position.y = 0.61;
+  iron.add(tipMesh);
+  const cradle = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.016, 8, 22), steel);
+  cradle.position.set(-1.55, 0.22, 0.25);
+  cradle.rotation.x = Math.PI / 2.6;
+  scene.add(cradle);
+
+  /* --- notebooks --- */
+  for (let i = 0; i < 3; i++) {
+    const nb = new THREE.Mesh(roundedBox(0.6, 0.055, 0.44, 0.012),
+      new THREE.MeshStandardMaterial({ color: [0x3a4a44, 0x53473a, 0x2f3f4a][i], roughness: 0.8, metalness: 0.05 }));
+    nb.position.set(1.75, 0.12 + i * 0.06, -0.05);
+    nb.rotation.y = -0.5 + i * 0.09;
+    scene.add(nb);
+  }
+
+  return {
+    scene, camera,
+    update(dt, t) {
+      term.draw(t);
+      const squeeze = reduceMotion ? 0.5 : Math.sin(t * 0.5) * 0.5 + 0.5;
+      slide.position.x = -0.34 + squeeze * 0.3;
+      tipMesh.material.color.setHex(reduceMotion || Math.floor(t * 1.5) % 2 === 0 ? 0xf0a31e : 0xc4562a);
+    }
+  };
+}
+
+/* A small terminal that only redraws when the cursor flips, not every frame. */
+function makeTerminal() {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 288;
+  const ctx = c.getContext("2d");
+  const texture = new THREE.CanvasTexture(c);
+  texture.colorSpace = THREE.SRGBColorSpace;
+
+  const lines = [
+    "$ ssh pi@bench.local",
+    "  Linux raspbian 6.1  aarch64",
+    "$ nano servo_uart.c",
+    "  writing  1284 lines",
+    "$ cmake --build . -j4",
+    "  [100%] built target arm",
+    "$ ./arm --calibrate"
+  ];
+
+  let shown = -1;
+
+  function draw(t) {
+    const on = reduceMotion ? 1 : Math.floor(t * 1.9) % 2;
+    if (on === shown) return;
+    shown = on;
+
+    ctx.fillStyle = "#0b1412";
+    ctx.fillRect(0, 0, 512, 288);
+    ctx.globalAlpha = 0.05;
+    ctx.fillStyle = "#9fd8c6";
+    for (let y = 0; y < 288; y += 3) ctx.fillRect(0, y, 512, 1);
+    ctx.globalAlpha = 1;
+
+    ctx.font = "16px 'IBM Plex Mono', ui-monospace, monospace";
+    ctx.textBaseline = "top";
+    lines.forEach((line, i) => {
+      ctx.fillStyle = line.startsWith("$") ? "#d7e2da" : "#7d9086";
+      ctx.fillText(line, 24, 26 + i * 32);
+    });
+
+    if (on) {
+      ctx.fillStyle = "#f0a31e";
+      ctx.fillRect(24 + ctx.measureText("$ ./arm --calibrate ").width, 26 + 6 * 32, 10, 18);
+    }
+    texture.needsUpdate = true;
+  }
+
+  return { texture, draw };
+}

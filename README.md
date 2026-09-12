@@ -1,7 +1,8 @@
 # Portfolio — Shivender Singh Thakur
 
-**Version 2.** The whole page now runs inside one 3D workshop. Version 1 was a light
-editorial layout with the 3D boxed into panels.
+**Version 3.** Repositioned around research practice, with press evidence, structured data
+and eight stations along the bench. Version 2 moved the whole page inside one 3D workshop;
+version 1 was a light editorial layout with the 3D boxed into panels.
 
 A single static page with a 3D workshop running behind the writing. No build step and
 nothing to install. Three.js is the only external library and it loads from a CDN.
@@ -11,7 +12,7 @@ index.html          the whole page
 css/styles.css      type, colour and layout
 js/world.js         the scene, the room, and the camera path the page scrolls along
 js/bench.js         the arm: inverse kinematics, claw, pick and place, the monitor
-js/stations.js      the five rigs standing along the bench
+js/stations.js      the eight rigs standing along the bench
 js/site.js          marks the section you are reading in the masthead
 assets/             portrait
 ```
@@ -82,10 +83,22 @@ the same joint angles and state as the readout in the corner of the page.
 
 ## The rigs
 
-Five smaller rigs stand further along the bench, one per section: a UART frame travelling
-down a serial line, the landmarks a face recogniser keys on, a hand pose driving a gripper,
-a two-link arm tracing both of its working planes, and the boards themselves. Each runs only
-while the camera is near it.
+Eight rigs stand along the bench, one per section: a UART frame travelling down a serial
+line, two sprint dials geared at different speeds, the landmarks a face recogniser keys on,
+a wall of name plates lighting one at a time, a hand pose driving a gripper, a two-link arm
+tracing both of its working planes, the boards themselves, and a bench vignette of the
+tools the work actually happens in. Each updates only while the camera is near it, and is
+hidden entirely beyond 26 units.
+
+The editors are named in the page's own type rather than reproduced as marks. Microsoft,
+JetBrains and GitHub all forbid redrawing or restyling their logos, and Sublime HQ publishes
+no permission at all, so the 3D stands in for them with generic bench objects instead.
+
+## Evidence
+
+Three newspaper clippings and an event photograph sit in the DOM, inside the claims they
+support, rather than in the 3D world. They are desaturated at rest and return to colour on
+hover, and each links to a larger scan. The raw LinkedIn export in `data/` is gitignored.
 
 With `prefers-reduced-motion` set, nothing moves on its own. The arm only moves when you
 drive it.

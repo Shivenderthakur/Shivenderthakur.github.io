@@ -87,7 +87,7 @@ function buildMarks() {
 
 /* ------------------------------------------------------------------ parts */
 
-function roundedBox(w, h, d, r) {
+export function roundedBox(w, h, d, r) {
   const rr = Math.min(r, w / 2 - 0.002, h / 2 - 0.002, d / 2 - 0.002);
   const sw = w - 2 * rr;
   const sh = h - 2 * rr;
@@ -106,7 +106,7 @@ function roundedBox(w, h, d, r) {
   return geo;
 }
 
-function hub(r, w, body, ring) {
+export function hub(r, w, body, ring) {
   const g = new THREE.Group();
   const cyl = new THREE.Mesh(new THREE.CylinderGeometry(r, r, w, 30), body);
   cyl.rotation.x = Math.PI / 2;

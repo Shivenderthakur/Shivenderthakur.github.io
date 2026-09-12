@@ -19,7 +19,7 @@ const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").match
 const coarse = window.matchMedia("(pointer: coarse)").matches;
 
 const BENCH_FROM = 5.2;
-const BENCH_TO = -41.5;
+const BENCH_TO = -62.5;
 const BENCH_Z = -0.15;
 const BENCH_D = 5.0;
 const FLOOR_Y = -2.55;
@@ -32,13 +32,21 @@ let renderer, scene, camera, bench, stations;
 /* Where the camera sits for each anchored section. The target is set left of the
    subject so the rig lands in the right half, clear of the writing. */
 const SHOTS = [
-  { sel: "#bench",      target: [-1.3, 0.86, 0.1],  offset: [3.0, 1.5, 5.3] },
-  { sel: "#about",      target: [-9.7, 0.95, 0],    offset: [2.2, 1.0, 4.1] },
-  { sel: "#work-face",  target: [-16.9, 1.05, 0],   offset: [2.2, 0.9, 4.0] },
-  { sel: "#work-hand",  target: [-23.9, 1.0, 0],    offset: [2.2, 0.9, 4.0] },
-  { sel: "#work-trace", target: [-30.9, 1.15, 0],   offset: [2.2, 0.9, 4.0] },
-  { sel: "#stack",      target: [-38.5, 0.9, 0],    offset: [2.2, 1.1, 4.4] },
-  { sel: "#contact",    target: [-19.0, 1.2, 0],    offset: [1.0, 7.6, 19.0] }
+  { sel: "#bench",           target: [-1.3, 0.86, 0.1], offset: [3.0, 1.5, 5.3] },
+  { sel: "#about",           target: [-9.7, 0.95, 0],   offset: [2.2, 1.0, 4.1] },
+  { sel: "#research",        target: [-16.9, 0.8, 0],   offset: [2.4, 1.1, 4.3] },
+  { sel: "#work-robonari",   target: [-24.1, 1.05, 0],  offset: [2.2, 0.9, 4.0] },
+  { sel: "#work-attendance", target: [-31.3, 1.0, 0],   offset: [2.2, 0.95, 4.2] },
+  { sel: "#work-kinelink",   target: [-38.5, 1.0, 0],   offset: [2.2, 0.9, 4.0] },
+  { sel: "#work-servo",      target: [-45.7, 1.15, 0],  offset: [2.2, 0.9, 4.0] },
+  /* teaching has no rig: the camera simply pulls back off the bench */
+  { sel: "#work-camp",       target: [-47.6, 1.3, 0],   offset: [2.6, 2.2, 6.6] },
+  /* experience gets the wide shot rather than a rig, lifting rather than
+     swinging so there is no whiplash across the length of the bench */
+  { sel: "#experience",      target: [-46.0, 2.0, 0],   offset: [1.0, 6.4, 17.0] },
+  { sel: "#stack",           target: [-52.9, 0.9, 0],   offset: [2.2, 1.1, 4.4] },
+  { sel: "#toolchain",       target: [-60.1, 0.72, 0],  offset: [2.4, 1.15, 4.2] },
+  { sel: "#contact",         target: [-58.0, 2.2, 0],   offset: [1.0, 8.2, 20.0] }
 ];
 
 function fail(err) {
@@ -117,7 +125,8 @@ function buildRoom() {
   floor.receiveShadow = true;
   scene.add(floor);
 
-  const grid = new THREE.GridHelper(64, 64, 0x2a423c, 0x182622);
+  const span = Math.round(len + 26);
+  const grid = new THREE.GridHelper(span, span, 0x2a423c, 0x182622);
   grid.position.set(mid, FLOOR_Y + 0.002, 0);
   grid.material.transparent = true;
   grid.material.opacity = 0.4;
@@ -355,7 +364,9 @@ function frame(now) {
   const near = target.x;
   if (Math.abs(near) < 20) bench.update(now, dt);
   for (const s of stations) {
-    if (Math.abs(s.x - near) < 14) s.update(dt, now / 1000);
+    const away = Math.abs(s.x - near);
+    s.group.visible = away < 26;
+    if (away < 14) s.update(dt, now / 1000);
   }
 
   renderer.render(scene, camera);
