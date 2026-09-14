@@ -848,18 +848,133 @@ body:not(.no-world) .panel .section-head { margin-bottom: 1.5rem; }
 .wall figcaption { margin-top: 0.45rem; font-family: var(--sans); font-size: 0.72rem; line-height: 1.35; color: var(--muted); }
 .wall figcaption b { display: block; color: var(--ink); font-weight: 600; }
 
-/* full-size scan viewer */
+/* full-size gallery viewer: swipe, arrows, thumbnails */
 .viewer {
-  max-width: min(92vw, 70rem);
-  max-height: 92vh;
-  padding: 1rem;
+  width: min(94vw, 72rem);
+  max-width: none;
+  max-height: 96vh;
+  padding: 1rem 1rem 0.8rem;
   border: 1px solid var(--rule);
   background: #0a1210;
   color: var(--ink);
+  overflow: hidden;
 }
-.viewer::backdrop { background: rgba(3, 6, 5, 0.86); }
-.viewer img { max-height: 80vh; width: auto; margin: 0 auto; }
-.viewer p { margin: 0.7rem 0 0; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); text-align: center; }
+.viewer::backdrop { background: rgba(3, 6, 5, 0.9); }
+.viewer__stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(60vh, 34rem);
+  touch-action: pan-y;
+  user-select: none;
+}
+.viewer__stage img { max-height: 72vh; max-width: 100%; width: auto; height: auto; margin: 0 auto; }
+.viewer__stage img.from-right { animation: slide-in-right 320ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+.viewer__stage img.from-left { animation: slide-in-left 320ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+@keyframes slide-in-right { from { opacity: 0; transform: translateX(3rem); } to { opacity: 1; transform: none; } }
+@keyframes slide-in-left { from { opacity: 0; transform: translateX(-3rem); } to { opacity: 1; transform: none; } }
+.viewer__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 2.8rem;
+  height: 2.8rem;
+  font-size: 1.2rem;
+  color: var(--ink);
+  background: rgba(7, 13, 12, 0.78);
+  border: 1px solid var(--rule);
+  cursor: pointer;
+}
+.viewer__nav--prev { left: 0; }
+.viewer__nav--next { right: 0; }
+.viewer__nav:hover, .viewer__nav:focus-visible { border-color: var(--phosphor); color: var(--phosphor); }
+.viewer.is-single .viewer__nav, .viewer.is-single .viewer__thumbs { display: none; }
+.viewer__meta { margin: 0.7rem 0 0; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); text-align: center; }
+.viewer__meta span:first-child:not(:empty) { font-family: var(--mono); color: var(--phosphor); margin-right: 0.8rem; }
+.viewer__thumbs {
+  display: flex;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  padding-bottom: 0.2rem;
+}
+.viewer__thumbs button {
+  flex: 0 0 auto;
+  width: 4.2rem;
+  height: 3.2rem;
+  padding: 0;
+  border: 1px solid var(--rule-sub);
+  background: #0b1412;
+  cursor: pointer;
+  scroll-snap-align: center;
+  opacity: 0.55;
+}
+.viewer__thumbs button[aria-current="true"] { opacity: 1; border-color: var(--phosphor); }
+.viewer__thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (max-width: 40rem) {
+  .viewer { padding: 0.6rem 0.5rem 0.6rem; }
+  .viewer__nav { width: 2.3rem; height: 2.3rem; }
+}
+
+/* arm tuning, beside the readout while the workbench is in focus */
+.rig { display: none; }
+body:not(.no-world) .rig {
+  display: block;
+  position: fixed;
+  left: var(--gutter);
+  top: 15.5rem;
+  z-index: 12;
+  width: 17rem;
+  visibility: visible;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 300ms ease;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--ink);
+  background: rgba(7, 13, 12, 0.82);
+  border: 1px solid var(--rule);
+  backdrop-filter: blur(8px);
+}
+body[data-place="bench"]:not(.no-world) .rig { opacity: 1; pointer-events: auto; }
+.rig summary {
+  cursor: pointer;
+  padding: 0.55rem 0.8rem;
+  color: var(--phosphor);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.rig__body { padding: 0 0.8rem 0.8rem; }
+.rig label { display: grid; grid-template-columns: 6.2rem 1fr 3.6rem; align-items: center; gap: 0.4rem; margin: 0.35rem 0; }
+.rig label span { color: var(--muted); }
+.rig input[type="range"] { width: 100%; accent-color: var(--phosphor); }
+.rig output { text-align: right; }
+.rig__stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem 0.8rem; margin: 0.7rem 0 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--rule-sub); }
+.rig__stats dt { color: var(--muted); font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.rig__stats dd { margin: 0.1rem 0 0; color: var(--phosphor); font-size: 0.85rem; }
+.rig__reset {
+  font: inherit;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--rule);
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+}
+.rig__reset:hover { border-color: var(--phosphor); color: var(--phosphor); }
+.rig__hint { margin: 0.6rem 0 0; font-family: var(--sans); font-size: 0.72rem; line-height: 1.45; color: var(--muted); }
+@media (max-width: 61.99rem) {
+  body:not(.no-world) .rig {
+    top: 7.4rem; bottom: auto; left: auto; right: 0.75rem;
+    width: min(16rem, calc(100vw - 1.5rem));
+    max-height: calc(42vh - 8rem);
+    overflow-y: auto;
+  }
+  body:not(.no-world) .rig .rig__hint { display: none; }
+}
 .viewer form { position: absolute; top: 0.4rem; right: 0.4rem; margin: 0; }
 .viewer__close {
   font-size: 1.6rem; line-height: 1; width: 2.4rem; height: 2.4rem;
@@ -878,3 +993,21 @@ body:not(.is-exploring):not(.no-world) .world-hint { opacity: 0; }
 
 /* the footer has no place on the island; its address already lives in the panels */
 body:not(.no-world) > footer { display: none; }
+
+/* the "how I did it" breakdown inside work and research entries */
+.how { margin-top: 1.2rem; padding-left: 1rem; border-left: 1px solid rgba(240, 163, 30, 0.35); }
+.how h4 {
+  margin: 1.3rem 0 0.45rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--phosphor);
+}
+.how h4:first-child { margin-top: 0; }
+.how p { margin: 0 0 0.8rem; }
+.steps { margin: 0 0 0.8rem; padding-left: 1.2rem; }
+.steps li { margin: 0 0 0.7rem; padding-left: 0.2rem; line-height: 1.6; }
+.steps li::marker { font-family: var(--mono); color: var(--phosphor); }
+.steps b { color: var(--ink); font-weight: 600; }

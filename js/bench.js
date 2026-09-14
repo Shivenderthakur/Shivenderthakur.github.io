@@ -1,60 +1,146 @@
-/* The workbench: the arm, the machine it is programmed from, and the block you
+/* The workbench: the arm, the computer it is programmed from, and the block you
    move around. It builds into a scene the world module owns, and is driven by
-   that module's clock rather than running a loop of its own. */
+   that module's clock rather than running a loop of its own.
+
+   The arm is a parameter set, not a fixed model. Change the base height or any
+   link length and the geometry, the inverse kinematics, the reach limits and the
+   drawn working volume are all rebuilt from the same four numbers. One scene unit
+   is 10 cm, the scale of a desktop arm like the ones in the work section. */
 
 import * as THREE from "three";
 
 export const AMBER = 0xf0a31e;
-const STEEL = 0xa8b3ac;
-const DARK = 0x33443f;
 
-/* the machine, in metres */
-const SHOULDER_Y = 0.66;
-const L1 = 1.12;
-const L2 = 0.95;
-const CLAW_LEN = 0.34;
+/* ------------------------------------------------------------ parameters */
+
+export const LIMITS = {
+  base: [0.45, 1.0],
+  l1: [0.7, 1.35],
+  l2: [0.6, 1.15],
+  claw: [0.26, 0.44]
+};
+const dims = { base: 0.66, l1: 1.12, l2: 0.95, claw: 0.34 };
+
+let SHOULDER_Y, L1, L2, CLAW_LEN, D_MAX, D_MIN, REACH_MAX;
+const RP_MIN = 0.06;
 
 const BLOCK = 0.24;
 const HALF = BLOCK / 2;
-
-/* The reachable set of a claw held level: the wrist has to sit CLAW_LEN short of
-   the target, and the two links can only span between these distances from the
-   shoulder. That is a 3-DOF envelope, not a circle on the floor. */
-const D_MAX = L1 + L2 - 0.02;
-const D_MIN = Math.abs(L1 - L2) + 0.06;
-const RP_MIN = 0.06;
-const REACH_MAX = Math.sqrt(Math.max(D_MAX * D_MAX - (SHOULDER_Y - HALF) ** 2, 0)) + CLAW_LEN;
 
 const GAP_OPEN = 0.46;
 const GAP_SHUT = BLOCK - 0.014;
 
 const PED_TOP = 0.44;
-const HOME = new THREE.Vector3(-0.89, PED_TOP + HALF, 1.27);
-const REST = new THREE.Vector3(0.72, 1.58, -0.3);
-const CARRY_Y = 1.06;
+const HOME = new THREE.Vector3();
+const HOME_DIR = new THREE.Vector2(-0.89, 1.27).normalize();
 const HOVER = 0.4;
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const damp = (cur, to, k, dt) => cur + (to - cur) * (1 - Math.exp(-k * dt));
 
-let scene, camera, reduceMotion, out;
-let turret, shoulder, elbow, wrist, fingerL, fingerR, padAnchor;
-let payload, payloadGlow, blockShadow, stem, handle, reachRing, pedestalRing, envelope;
+/* The reachable set of a claw held level. The wrist sits CLAW_LEN short of the
+   target, and two links can only put it between D_MIN and D_MAX from the
+   shoulder, so the claw sweeps a thick dome around the base, not a circle. */
+function derive() {
+  SHOULDER_Y = dims.base;
+  L1 = dims.l1;
+  L2 = dims.l2;
+  CLAW_LEN = dims.claw;
+  D_MAX = L1 + L2 - 0.02;
+  D_MIN = Math.abs(L1 - L2) + 0.06;
+  REACH_MAX = floorSpan(HALF).outer;
+
+  /* the pedestal sits where the arm can always reach it at a comfortable stretch */
+  const y = PED_TOP + HALF;
+  const span = floorSpan(y);
+  const r = clamp(1.55, span.inner + 0.3, span.outer - 0.22);
+  HOME.set(HOME_DIR.x * r, y, HOME_DIR.y * r);
+}
+
+/* inner and outer radius the claw can touch at a given height */
+function floorSpan(y) {
+  const dy = y - SHOULDER_Y;
+  const outer = Math.sqrt(Math.max(D_MAX * D_MAX - dy * dy, 0)) + CLAW_LEN;
+  const inner = Math.max(RP_MIN, Math.sqrt(Math.max(D_MIN * D_MIN - dy * dy, 0))) + CLAW_LEN;
+  return { inner, outer };
+}
+
+derive();
+
+/* ----------------------------------------------------------------- state */
+
+let scene, camera, reduceMotion, out, onStats;
+let armRig, turret, shoulder, elbow, wrist, fingerL, fingerR, padAnchor, envelope;
+let payload, payloadGlow, blockShadow, stem, handle, reachRing, pedestal, pedestalRing, volume;
+let MAT;
 
 export function createBench(opts) {
   scene = opts.scene;
   camera = opts.camera;
   reduceMotion = opts.reduceMotion;
   out = opts.readout || {};
+  onStats = opts.onStats || (() => {});
+
+  MAT = {
+    /* powder-coated shell and anodised joints: matte, no clearcoat */
+    shell: new THREE.MeshStandardMaterial({ color: 0x9ea39c, roughness: 0.9, metalness: 0, envMapIntensity: 0.6 }),
+    dark: new THREE.MeshStandardMaterial({ color: 0x2c3532, roughness: 0.88, metalness: 0.05 }),
+    bolt: new THREE.MeshStandardMaterial({ color: 0x8e9892, roughness: 0.7, metalness: 0.3 }),
+    pad: new THREE.MeshStandardMaterial({ color: 0x14201d, roughness: 0.95, metalness: 0 }),
+    glow: new THREE.MeshBasicMaterial({ color: AMBER })
+  };
 
   buildMarks();
   buildDesk();
-  buildArm();
   buildPedestal();
   buildPayload();
+  buildArm();
 
-  return { update, pointerDown, pointerMove, pointerUp, hoverAt, group: null };
+  return { update, pointerDown, pointerMove, pointerUp, hoverAt, setDims, getDims, stats, LIMITS, block: () => block.clone(), group: null };
+}
+
+/* ------------------------------------------------------------ parameters */
+
+function getDims() {
+  return { ...dims };
+}
+
+function setDims(next) {
+  let changed = false;
+  for (const k of Object.keys(LIMITS)) {
+    if (next[k] === undefined) continue;
+    const v = clamp(+next[k], LIMITS[k][0], LIMITS[k][1]);
+    if (v !== dims[k]) { dims[k] = v; changed = true; }
+  }
+  if (!changed) return stats();
+  derive();
+  buildArm();
+  placePedestal();
+  clampBlock();
+  tunedAt = performance.now();
+  return stats();
+}
+
+/* Floor area and swept volume, from the same profile the dome is drawn with.
+   Volume is Pappus: the profile's area times the distance its centroid travels. */
+function stats() {
+  const prof = envelopeProfile();
+  let twice = 0;
+  for (let i = 0; i < prof.length; i++) {
+    const a = prof[i], b = prof[(i + 1) % prof.length];
+    twice += (a.x + b.x) * (a.x * b.y - b.x * a.y);
+  }
+  const vol = Math.abs((2 * Math.PI * twice) / 6);
+  const span = floorSpan(HALF);
+  const area = Math.PI * (span.outer ** 2 - span.inner ** 2);
+  return {
+    reachCm: span.outer * 10,
+    heightCm: (SHOULDER_Y + D_MAX) * 10,
+    areaCm2: area * 100,
+    litres: vol,
+    dims: getDims()
+  };
 }
 
 /* ----------------------------------------------------------------- marks */
@@ -73,14 +159,14 @@ function blobTexture() {
 
 function buildMarks() {
   reachRing = new THREE.Mesh(
-    new THREE.RingGeometry(REACH_MAX - 0.014, REACH_MAX, 96),
-    new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
+    new THREE.BufferGeometry(),
+    new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false })
   );
   reachRing.rotation.x = -Math.PI / 2;
   reachRing.position.y = 0.006;
   scene.add(reachRing);
 
-  const warm = new THREE.PointLight(AMBER, 11, 7, 2);
+  const warm = new THREE.PointLight(AMBER, 4, 7, 2);
   warm.position.set(0.9, 1.2, 1.9);
   scene.add(warm);
 }
@@ -120,33 +206,48 @@ export function hub(r, w, body, ring) {
   return g;
 }
 
+function disposeTree(root) {
+  root.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material && o.userData.ownMaterial) o.material.dispose();
+  });
+}
+
+/* Everything that depends on the four numbers lives in one group, so a change
+   throws the group away and builds it again. Joint angles survive the rebuild. */
 function buildArm() {
-  const steel = new THREE.MeshPhysicalMaterial({ color: 0xc3ccc6, roughness: 0.26, metalness: 1, clearcoat: 0.35, clearcoatRoughness: 0.18 });
-  const dark = new THREE.MeshPhysicalMaterial({ color: 0x26312d, roughness: 0.34, metalness: 0.55, clearcoat: 0.7, clearcoatRoughness: 0.14 });
-  const pad = new THREE.MeshStandardMaterial({ color: 0x14201d, roughness: 0.95, metalness: 0 });
-  const glow = new THREE.MeshBasicMaterial({ color: AMBER });
+  if (armRig) {
+    scene.remove(armRig);
+    disposeTree(armRig);
+    volume.userData.shellMat.dispose();
+    volume.userData.lineMat.dispose();
+  }
+  armRig = new THREE.Group();
+  scene.add(armRig);
+  const { shell, dark, bolt, pad, glow } = MAT;
 
   const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.56, 0.11, 48), dark);
   plate.position.y = 0.055;
   plate.castShadow = plate.receiveShadow = true;
-  scene.add(plate);
+  armRig.add(plate);
 
   for (let i = 0; i < 6; i++) {
-    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.022, 6), steel);
-    bolt.position.set(Math.cos(i / 6 * Math.PI * 2) * 0.42, 0.115, Math.sin(i / 6 * Math.PI * 2) * 0.42);
-    scene.add(bolt);
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.022, 6), bolt);
+    b.position.set(Math.cos(i / 6 * Math.PI * 2) * 0.42, 0.115, Math.sin(i / 6 * Math.PI * 2) * 0.42);
+    armRig.add(b);
   }
 
   turret = new THREE.Group();
-  scene.add(turret);
+  armRig.add(turret);
 
   const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.38, 0.11, 40), dark);
   collar.position.y = 0.16;
   collar.castShadow = true;
   turret.add(collar);
 
-  const column = new THREE.Mesh(roundedBox(0.34, SHOULDER_Y - 0.2, 0.42, 0.05), steel);
-  column.position.y = 0.22 + (SHOULDER_Y - 0.2) / 2;
+  const colH = SHOULDER_Y - 0.2;
+  const column = new THREE.Mesh(roundedBox(0.34, colH, 0.42, 0.05), shell);
+  column.position.y = 0.22 + colH / 2;
   column.castShadow = true;
   turret.add(column);
 
@@ -159,7 +260,7 @@ function buildArm() {
   turret.add(shoulder);
   shoulder.add(hub(0.145, 0.27, dark, glow));
 
-  const upper = new THREE.Mesh(roundedBox(L1, 0.2, 0.17, 0.045), steel);
+  const upper = new THREE.Mesh(roundedBox(L1, 0.2, 0.17, 0.045), shell);
   upper.position.x = L1 / 2;
   upper.castShadow = true;
   shoulder.add(upper);
@@ -174,7 +275,7 @@ function buildArm() {
   shoulder.add(elbow);
   elbow.add(hub(0.115, 0.215, dark, glow));
 
-  const fore = new THREE.Mesh(roundedBox(L2, 0.155, 0.135, 0.04), steel);
+  const fore = new THREE.Mesh(roundedBox(L2, 0.155, 0.135, 0.04), shell);
   fore.position.x = L2 / 2;
   fore.castShadow = true;
   elbow.add(fore);
@@ -189,17 +290,22 @@ function buildArm() {
   palm.castShadow = true;
   wrist.add(palm);
 
-  const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.4, 12), steel);
+  /* the claw is drawn for 0.34 and stretched to whatever length is set */
+  const claw = new THREE.Group();
+  claw.scale.x = CLAW_LEN / 0.34;
+  wrist.add(claw);
+
+  const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.4, 12), bolt);
   rail.rotation.x = Math.PI / 2;
   rail.position.x = 0.2;
-  wrist.add(rail);
+  claw.add(rail);
 
-  fingerL = buildFinger(steel, pad);
-  fingerR = buildFinger(steel, pad);
+  fingerL = buildFinger(shell, pad);
+  fingerR = buildFinger(shell, pad);
   fingerR.scale.z = -1;
-  wrist.add(fingerL, fingerR);
+  claw.add(fingerL, fingerR);
 
-  /* the outer edge of what the arm can actually touch, in its own plane */
+  /* the outer edge of what the arm can touch, in its own plane */
   const arc = [];
   const a0 = Math.asin(clamp((HALF - SHOULDER_Y) / D_MAX, -1, 1));
   const a1 = Math.acos(clamp(RP_MIN / D_MAX, -1, 1));
@@ -211,24 +317,33 @@ function buildArm() {
     new THREE.BufferGeometry().setFromPoints(arc),
     new THREE.LineDashedMaterial({ color: AMBER, dashSize: 0.09, gapSize: 0.07, transparent: true, opacity: 0 })
   );
+  envelope.userData.ownMaterial = true;
   envelope.computeLineDistances();
   turret.add(envelope);
 
-  /* exactly where the pads meet: the arm's business end */
   padAnchor = new THREE.Object3D();
   padAnchor.position.x = CLAW_LEN;
   wrist.add(padAnchor);
+
+  buildVolume();
+
+  const span = floorSpan(HALF);
+  reachRing.geometry.dispose();
+  reachRing.geometry = new THREE.RingGeometry(span.inner, span.outer, 128, 1);
+
+  /* carry the pose across the rebuild */
+  applyPose();
 }
 
-function buildFinger(steel, pad) {
+function buildFinger(shell, pad) {
   const g = new THREE.Group();
 
-  const knuckle = new THREE.Mesh(roundedBox(0.1, 0.1, 0.075, 0.022), steel);
+  const knuckle = new THREE.Mesh(roundedBox(0.1, 0.1, 0.075, 0.022), shell);
   knuckle.position.set(0.2, 0, 0);
   knuckle.castShadow = true;
   g.add(knuckle);
 
-  const blade = new THREE.Mesh(roundedBox(0.23, 0.075, 0.055, 0.018), steel);
+  const blade = new THREE.Mesh(roundedBox(0.23, 0.075, 0.055, 0.018), shell);
   blade.position.set(0.33, 0, 0);
   blade.castShadow = true;
   g.add(blade);
@@ -240,44 +355,122 @@ function buildFinger(steel, pad) {
   return g;
 }
 
+/* ------------------------------------------------------- working volume */
+
+/* The boundary of the reachable set in the arm's own (radius, height) plane:
+   out along the long-reach arc, in along the vertical the claw cannot cross,
+   back along the short-reach arc, and closed along the desk. */
+function envelopeProfile() {
+  const pts = [];
+  const V = (r, y) => pts.push(new THREE.Vector2(r, y));
+  const N = 40;
+
+  const aLo = Math.asin(clamp((HALF - SHOULDER_Y) / D_MAX, -1, 1));
+  const aHi = Math.acos(clamp(RP_MIN / D_MAX, -1, 1));
+  for (let i = 0; i <= N; i++) {
+    const a = aLo + ((aHi - aLo) * i) / N;
+    V(CLAW_LEN + D_MAX * Math.cos(a), SHOULDER_Y + D_MAX * Math.sin(a));
+  }
+
+  if (D_MIN > RP_MIN) {
+    const bHi = Math.acos(RP_MIN / D_MIN);
+    const bLo = Math.max(Math.asin(clamp((HALF - SHOULDER_Y) / D_MIN, -1, 1)), -bHi);
+    for (let i = 0; i <= N / 2; i++) {
+      const b = bHi + ((bLo - bHi) * i) / (N / 2);
+      V(CLAW_LEN + D_MIN * Math.cos(b), SHOULDER_Y + D_MIN * Math.sin(b));
+    }
+    if (bLo === -bHi) V(CLAW_LEN + RP_MIN, HALF);
+  } else {
+    V(CLAW_LEN + RP_MIN, HALF);
+  }
+  return pts;
+}
+
+function buildVolume() {
+  volume = new THREE.Group();
+  armRig.add(volume);
+
+  const prof = envelopeProfile();
+  const closed = prof.concat([prof[0].clone()]);
+
+  const shellMat = new THREE.MeshBasicMaterial({
+    color: 0xffc670, transparent: true, opacity: 0.015, side: THREE.DoubleSide, depthWrite: false
+  });
+  const dome = new THREE.Mesh(new THREE.LatheGeometry(closed, 96), shellMat);
+  dome.userData.ownMaterial = true;
+  dome.renderOrder = 2;
+  volume.add(dome);
+
+  /* meridians and parallels make the dome read as a volume, not a haze */
+  const lineMat = new THREE.LineBasicMaterial({ color: AMBER, transparent: true, opacity: 0.22, depthWrite: false });
+  const outer = prof.slice(0, 41);
+  const merid = new THREE.BufferGeometry().setFromPoints(outer.map((p) => new THREE.Vector3(p.x, p.y, 0)));
+  for (let i = 0; i < 16; i++) {
+    const l = new THREE.Line(merid, lineMat);
+    l.rotation.y = (i / 16) * Math.PI * 2;
+    volume.add(l);
+  }
+  for (const t of [0, 0.35, 0.62, 0.84]) {
+    const p = outer[Math.round(t * 40)];
+    const ring = [];
+    for (let i = 0; i <= 72; i++) {
+      const a = (i / 72) * Math.PI * 2;
+      ring.push(new THREE.Vector3(Math.cos(a) * p.x, p.y, Math.sin(a) * p.x));
+    }
+    volume.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ring), lineMat));
+  }
+  volume.userData = { shellMat, lineMat, ownMaterial: false };
+}
+
+/* ------------------------------------------------------------- pedestal */
+
 function buildPedestal() {
+  pedestal = new THREE.Group();
+  scene.add(pedestal);
+
   const col = new THREE.Mesh(
     new THREE.CylinderGeometry(0.2, 0.25, PED_TOP, 32),
-    new THREE.MeshStandardMaterial({ color: 0x354842, roughness: 0.5, metalness: 0.55 })
+    new THREE.MeshStandardMaterial({ color: 0x354842, roughness: 0.85, metalness: 0.05 })
   );
-  col.position.set(HOME.x, PED_TOP / 2, HOME.z);
+  col.position.y = PED_TOP / 2;
   col.castShadow = col.receiveShadow = true;
-  scene.add(col);
+  pedestal.add(col);
 
   const top = new THREE.Mesh(
     new THREE.CylinderGeometry(0.26, 0.26, 0.03, 32),
-    new THREE.MeshStandardMaterial({ color: STEEL, roughness: 0.46, metalness: 0.42 })
+    new THREE.MeshStandardMaterial({ color: 0x9aa59f, roughness: 0.8, metalness: 0.05 })
   );
-  top.position.set(HOME.x, PED_TOP + 0.015, HOME.z);
+  top.position.y = PED_TOP + 0.015;
   top.castShadow = top.receiveShadow = true;
-  scene.add(top);
+  pedestal.add(top);
 
   pedestalRing = new THREE.Mesh(
     new THREE.RingGeometry(0.2, 0.225, 40),
     new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
   );
   pedestalRing.rotation.x = -Math.PI / 2;
-  pedestalRing.position.set(HOME.x, PED_TOP + 0.033, HOME.z);
-  scene.add(pedestalRing);
+  pedestalRing.position.y = PED_TOP + 0.033;
+  pedestal.add(pedestalRing);
 
   const base = new THREE.Mesh(
     new THREE.RingGeometry(0.31, 0.335, 44),
     new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
   );
   base.rotation.x = -Math.PI / 2;
-  base.position.set(HOME.x, 0.005, HOME.z);
-  scene.add(base);
+  base.position.y = 0.005;
+  pedestal.add(base);
+
+  placePedestal();
+}
+
+function placePedestal() {
+  pedestal.position.set(HOME.x, 0, HOME.z);
 }
 
 function buildPayload() {
   payload = new THREE.Mesh(
     roundedBox(BLOCK, BLOCK, BLOCK, 0.028),
-    new THREE.MeshStandardMaterial({ color: 0xbcc5bd, roughness: 0.28, metalness: 0.6 })
+    new THREE.MeshStandardMaterial({ color: 0xc9cfc8, roughness: 0.8, metalness: 0 })
   );
   payload.castShadow = payload.receiveShadow = true;
   scene.add(payload);
@@ -302,7 +495,7 @@ function buildPayload() {
   );
   scene.add(stem);
 
-  /* grab this ring to lift the block off the floor */
+  /* grab this ring to push the block across the desk at its current height */
   handle = new THREE.Mesh(
     new THREE.TorusGeometry(0.115, 0.014, 10, 28),
     new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0.85 })
@@ -311,55 +504,52 @@ function buildPayload() {
   scene.add(handle);
 }
 
-
 /* ------------------------------------------------------------------ bench */
 
-/* The arm stands on a workbench, next to the machine it is programmed from.
-   The monitor runs the same telemetry the panel readout shows. */
+/* The arm stands on a workbench beside the computer it is programmed from: a
+   tower, a monitor running the same telemetry the readout shows, a keyboard,
+   and the board the firmware is flashed to. Everything is matte. */
 
 let screen = null;
 
 function buildDesk() {
-  const shell = new THREE.MeshPhysicalMaterial({ color: 0x1a2220, roughness: 0.4, metalness: 0.2, clearcoat: 0.6, clearcoatRoughness: 0.2 });
+  const shell = new THREE.MeshStandardMaterial({ color: 0x1c2422, roughness: 0.82, metalness: 0.05 });
 
+  buildTower(shell);
   buildMonitor(shell);
   buildKeyboard(shell);
 
   const mouse = new THREE.Mesh(new THREE.SphereGeometry(0.5, 20, 14), shell);
   mouse.scale.set(0.3, 0.17, 0.46);
-  mouse.position.set(-1.7, 0.085, 1.85);
+  mouse.position.set(-1.95, 0.085, 1.95);
   mouse.rotation.y = 0.44;
   mouse.castShadow = true;
   scene.add(mouse);
 
-  const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.17, 0.42, 24), shell);
-  mug.position.set(-4.0, 0.21, 0.15);
+  const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.17, 0.42, 24),
+    new THREE.MeshStandardMaterial({ color: 0x3a4a45, roughness: 0.9 }));
+  mug.position.set(1.95, 0.21, -2.05);
   mug.castShadow = mug.receiveShadow = true;
   scene.add(mug);
 
-  const handleRing = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.028, 8, 20), shell);
-  handleRing.position.set(-3.79, 0.23, 0.15);
-  handleRing.rotation.y = Math.PI / 2;
-  scene.add(handleRing);
-
   /* the board the arm's firmware is flashed from */
   const board = new THREE.Group();
-  board.position.set(2.15, 0.02, 1.5);
+  board.position.set(2.2, 0.02, 1.55);
   board.rotation.y = -0.5;
   scene.add(board);
 
   const pcb = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.03, 0.42),
-    new THREE.MeshStandardMaterial({ color: 0x27564a, roughness: 0.66, metalness: 0.2 }));
+    new THREE.MeshStandardMaterial({ color: 0x27564a, roughness: 0.8 }));
   pcb.castShadow = pcb.receiveShadow = true;
   board.add(pcb);
 
   const soc = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.2),
-    new THREE.MeshStandardMaterial({ color: 0x27302d, roughness: 0.5, metalness: 0.45 }));
+    new THREE.MeshStandardMaterial({ color: 0x27302d, roughness: 0.85 }));
   soc.position.set(-0.06, 0.04, 0);
   board.add(soc);
 
   const pins = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.05, 0.045),
-    new THREE.MeshStandardMaterial({ color: 0xc8ab63, roughness: 0.35, metalness: 0.9 }));
+    new THREE.MeshStandardMaterial({ color: 0xa89464, roughness: 0.6, metalness: 0.4 }));
   pins.position.set(0, 0.04, -0.17);
   board.add(pins);
 
@@ -367,25 +557,105 @@ function buildDesk() {
   led.position.set(0.25, 0.035, 0.16);
   board.add(led);
 
-  /* a cable from the arm's base off toward the machine */
-  const curve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.2, 0.02, 0.5),
-    new THREE.Vector3(-0.5, 0.03, 1.15),
-    new THREE.Vector3(-1.6, 0.03, 1.05),
-    new THREE.Vector3(-2.5, 0.03, 0.1),
-    new THREE.Vector3(-2.75, 0.04, -0.85)
-  ]);
-  const cable = new THREE.Mesh(
-    new THREE.TubeGeometry(curve, 48, 0.028, 8, false),
-    new THREE.MeshStandardMaterial({ color: 0x16201d, roughness: 0.75, metalness: 0.15 })
-  );
-  cable.castShadow = true;
-  scene.add(cable);
+  /* one cable from the arm's base back to the tower */
+  const cableMat = new THREE.MeshStandardMaterial({ color: 0x16201d, roughness: 0.9 });
+  const run = (pts) => {
+    const c = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(([x, y, z]) => new THREE.Vector3(x, y, z))), 48, 0.028, 8, false), cableMat);
+    c.castShadow = true;
+    scene.add(c);
+  };
+  run([[0.2, 0.02, 0.5], [-0.6, 0.03, 0.95], [-1.9, 0.03, 0.55], [-3.0, 0.03, -0.1], [-3.75, 0.25, -0.35]]);
+  run([[-3.75, 1.2, -0.95], [-3.55, 0.6, -1.3], [-3.4, 0.03, -1.55]]);
 }
+
+/* A mid-tower on the desk, side panel toward the room. */
+function buildTower(shell) {
+  const rig = new THREE.Group();
+  rig.position.set(-4.55, 0, -0.4);
+  rig.rotation.y = 0.12;
+  scene.add(rig);
+
+  const W = 1.7, H = 1.85, D = 0.82;   // length along x, height, width along z
+  const body = new THREE.Mesh(roundedBox(W, H, D, 0.03), shell);
+  body.position.y = H / 2 + 0.06;
+  body.castShadow = body.receiveShadow = true;
+  rig.add(body);
+
+  for (const x of [-0.65, 0.65]) for (const z of [-0.3, 0.3]) {
+    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.06, 12), MAT.dark);
+    foot.position.set(x, 0.03, z);
+    rig.add(foot);
+  }
+
+  /* tinted side window with the board and cooler visible behind it */
+  const inside = new THREE.Group();
+  inside.position.set(0, body.position.y, D / 2 - 0.12);
+  rig.add(inside);
+
+  const mobo = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.35, 0.02),
+    new THREE.MeshStandardMaterial({ color: 0x1f2b27, roughness: 0.85 }));
+  mobo.position.set(-0.08, 0.1, -0.18);
+  inside.add(mobo);
+
+  const cooler = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.42, 0.26),
+    new THREE.MeshStandardMaterial({ color: 0x5b6461, roughness: 0.75, metalness: 0.2 }));
+  cooler.position.set(-0.05, 0.3, -0.04);
+  inside.add(cooler);
+
+  const gpu = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.12, 0.34),
+    new THREE.MeshStandardMaterial({ color: 0x252c2a, roughness: 0.8 }));
+  gpu.position.set(-0.05, -0.22, -0.02);
+  inside.add(gpu);
+
+  const fanMat = new THREE.MeshBasicMaterial({ color: 0x7ecfbf, transparent: true, opacity: 0.55 });
+  const fans = [];
+  for (const y of [0.42, -0.02]) {
+    const fan = new THREE.Group();
+    fan.position.set(0.72, y, -0.06);
+    fan.rotation.y = Math.PI / 2;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.012, 6, 36), fanMat);
+    fan.add(ring);
+    const blades = new THREE.Group();
+    for (let i = 0; i < 7; i++) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.14, 0.01), MAT.dark);
+      b.position.y = 0.075;
+      const arm = new THREE.Group();
+      arm.rotation.z = (i / 7) * Math.PI * 2;
+      b.rotation.y = 0.5;
+      arm.add(b);
+      blades.add(arm);
+    }
+    fan.add(blades);
+    inside.add(fan);
+    fans.push(blades);
+  }
+  towerFans = fans;
+
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.22, H - 0.3),
+    new THREE.MeshStandardMaterial({ color: 0x0c1412, roughness: 0.35, metalness: 0, transparent: true, opacity: 0.45 }));
+  glass.position.set(0, body.position.y + 0.02, D / 2 + 0.004);
+  rig.add(glass);
+
+  /* front panel: power button and a status LED on the +x face */
+  const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.02, 20), MAT.dark);
+  btn.rotation.z = Math.PI / 2;
+  btn.position.set(W / 2 + 0.01, H - 0.12, 0);
+  rig.add(btn);
+  const ledT = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.012, 0.12), MAT.glow);
+  ledT.position.set(W / 2 + 0.012, H - 0.22, 0);
+  rig.add(ledT);
+  for (let i = 0; i < 9; i++) {
+    const slot = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.02, 0.5), MAT.dark);
+    slot.position.set(W / 2 + 0.008, 0.35 + i * 0.1, 0);
+    rig.add(slot);
+  }
+}
+
+let towerFans = [];
 
 function buildMonitor(shell) {
   const rig = new THREE.Group();
-  rig.position.set(-2.75, 0, -1.5);
+  rig.position.set(-3.3, 0, -1.75);
   rig.rotation.y = 0.46;
   scene.add(rig);
 
@@ -423,7 +693,7 @@ function buildMonitor(shell) {
 
 function buildKeyboard(shell) {
   const rig = new THREE.Group();
-  rig.position.set(-2.6, 0, 1.0);
+  rig.position.set(-2.95, 0, 0.95);
   rig.rotation.y = 0.46;
   scene.add(rig);
 
@@ -436,7 +706,7 @@ function buildKeyboard(shell) {
   const rows = 5;
   const keys = new THREE.InstancedMesh(
     new THREE.BoxGeometry(0.108, 0.03, 0.108),
-    new THREE.MeshStandardMaterial({ color: 0x39443f, roughness: 0.75, metalness: 0.1 }),
+    new THREE.MeshStandardMaterial({ color: 0x39443f, roughness: 0.9 }),
     cols * rows
   );
   const m = new THREE.Matrix4();
@@ -489,16 +759,15 @@ function makeScreen() {
     ctx.textBaseline = "top";
 
     const rows = [
-      ["#7eceec", "[shivender@archbox ~]$ ", "neofetch"],
-      ["dim", "  os      ", "Arch Linux x86_64"],
-      ["dim", "  kernel  ", "6.18.45-1-lts"],
-      ["dim", "  shell   ", "bash 5.3"],
-      ["gap", "", ""],
       ["prompt", "[shivender@archbox ~]$ ", "./armctl --live"],
+      ["dim", "  links   ", info.links],
+      ["dim", "  reach   ", info.reach],
+      ["dim", "  volume  ", info.volume],
       ["gap", "", ""],
       ["val", "  J1 ", info.j1 + "    J2 " + info.j2],
       ["val", "  J3 ", info.j3 + "    J4 " + info.j4],
       ["gap", "", ""],
+      ["dim", "  target  ", info.target],
       ["dim", "  claw    ", info.claw],
       ["dim", "  state   ", info.state]
     ];
@@ -532,9 +801,8 @@ function makeScreen() {
 
 const block = new THREE.Vector3(1.62, HALF, -0.35);
 const angles = { yaw: 0, a1: 0.5, a2: -1.2, a3: 0.7, gap: GAP_OPEN };
-const orbit = { theta: 0.72, phi: 1.16, radius: 6, tTheta: 0.72, tPhi: 1.16 };
 
-const goal = new THREE.Vector3().copy(REST);
+const goal = new THREE.Vector3(0.72, 1.58, -0.3);
 const padWorld = new THREE.Vector3();
 
 const STATE = {
@@ -557,6 +825,7 @@ let atLimit = false;
 let wantShut = false;
 let lastTouch = performance.now();
 let autoAt = 0;
+let tunedAt = -1e9;
 
 function setState(s, now) { state = s; stateAt = now; }
 
@@ -564,9 +833,14 @@ function onPedestal(p) {
   return Math.hypot(p.x - HOME.x, p.z - HOME.z) < 0.27;
 }
 
-/* Push a point back onto the arm's real working envelope, wherever it is.
-   Goals get the same treatment as the block, or the arm chases a target it can
-   never touch and every step of the sequence has to wait out its timeout. */
+/* rest and carry heights scale with the arm, so a short arm is not asked to
+   hold a pose only a long one can reach */
+const restPoint = (v) => v.set(0.45 * REACH_MAX, SHOULDER_Y + 0.55 * D_MAX, -0.2 * REACH_MAX);
+const carryY = () => Math.min(HOME.y + 0.6, SHOULDER_Y + 0.45 * D_MAX);
+
+/* Push a point back onto the arm's real working envelope, wherever it is, in
+   the air as much as on the desk. Goals get the same treatment as the block, or
+   the arm chases a target it can never touch. */
 function clampToEnvelope(v) {
   let y = Math.max(v.y, HALF);
   const r = Math.hypot(v.x, v.z);
@@ -584,14 +858,14 @@ function clampToEnvelope(v) {
   if (y < HALF) {
     /* slide along the envelope rather than sinking through the desk */
     y = HALF;
-    const span = Math.sqrt(Math.max(D_MAX * D_MAX - (y - SHOULDER_Y) ** 2, 0.01));
-    rp = clamp(rp, RP_MIN, span);
+    const span = floorSpan(y);
+    rp = clamp(rp, span.inner - CLAW_LEN, span.outer - CLAW_LEN);
   }
 
   v.y = y;
-  const out = Math.max(rp, RP_MIN) + CLAW_LEN;
-  v.x = ux * out;
-  v.z = uz * out;
+  const o = Math.max(rp, RP_MIN) + CLAW_LEN;
+  v.x = ux * o;
+  v.z = uz * o;
   return k !== 1;
 }
 
@@ -599,49 +873,58 @@ function clampBlock() {
   atLimit = clampToEnvelope(block);
 }
 
+function applyPose() {
+  if (!turret) return;
+  turret.rotation.y = angles.yaw;
+  shoulder.rotation.z = angles.a1;
+  elbow.rotation.z = angles.a2;
+  wrist.rotation.z = angles.a3;
+  fingerL.position.z = angles.gap / 2;
+  fingerR.position.z = -angles.gap / 2;
+}
+
 /* ----------------------------------------------------------------- input */
 
-/* The canvas is the whole viewport and the page scrolls over it, so the world
-   forwards pointer events here with normalised device coordinates already. */
+/* The world forwards pointer events here in normalised device coordinates.
+   Grab the block itself and it moves in the plane facing you, so it goes up,
+   down and sideways into open air; orbit the view and that plane turns with
+   you, which is how it reaches any point in the dome. Grab the ring above it
+   to push it across the desk at the height it already has. */
 
 const ray = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
-const flat = new THREE.Plane();
-const upright = new THREE.Plane();
+const dragPlane = new THREE.Plane();
 const hit = new THREE.Vector3();
 const grabOffset = new THREE.Vector3();
+const camDir = new THREE.Vector3();
 
-let mode = "none";     // none | slide | lift
+let mode = "none";     // none | free | depth
 let moved = 0;
 
 function pointerDown(x, y) {
   moved = 0;
   lastTouch = performance.now();
-  held = false;
-  wantShut = false;
 
   ndc.set(x, y);
   ray.setFromCamera(ndc, camera);
 
-  if (ray.intersectObject(handle, false).length) {
-    mode = "lift";
-    upright.setFromNormalAndCoplanarPoint(
-      new THREE.Vector3(camera.position.x - block.x, 0, camera.position.z - block.z).normalize(),
-      block
-    );
-    return "lift";
-  }
+  const onRing = handle.visible && ray.intersectObject(handle, false).length;
+  const onBlock = ray.intersectObject(payload, false).length;
+  if (!onRing && !onBlock) { mode = "none"; return "none"; }
 
-  if (ray.intersectObject(payload, false).length) {
-    mode = "slide";
-    flat.set(new THREE.Vector3(0, 1, 0), -block.y);
-    if (ray.ray.intersectPlane(flat, hit)) grabOffset.copy(block).sub(hit);
-    else grabOffset.set(0, 0, 0);
-    return "slide";
+  held = false;
+  wantShut = false;
+  if (onRing && !onBlock) {
+    mode = "depth";
+    dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), block);
+  } else {
+    mode = "free";
+    camera.getWorldDirection(camDir);
+    dragPlane.setFromNormalAndCoplanarPoint(camDir.negate(), block);
   }
-
-  mode = "none";
-  return "none";
+  if (ray.ray.intersectPlane(dragPlane, hit)) grabOffset.copy(block).sub(hit);
+  else grabOffset.set(0, 0, 0);
+  return mode;
 }
 
 function pointerMove(x, y, travel) {
@@ -650,36 +933,31 @@ function pointerMove(x, y, travel) {
 
   ndc.set(x, y);
   ray.setFromCamera(ndc, camera);
-
-  if (mode === "slide") {
-    flat.set(new THREE.Vector3(0, 1, 0), -block.y);
-    if (ray.ray.intersectPlane(flat, hit)) {
-      block.x = hit.x + grabOffset.x;
-      block.z = hit.z + grabOffset.z;
-      clampBlock();
-    }
-  } else if (mode === "lift") {
-    if (ray.ray.intersectPlane(upright, hit)) block.y = hit.y;
+  if (ray.ray.intersectPlane(dragPlane, hit)) {
+    block.copy(hit).add(grabOffset);
+    clampBlock();
   }
   lastTouch = performance.now();
   return true;
 }
 
 function pointerUp(x, y) {
-  if (mode === "lift" && moved < 9) {
-    /* vertical drags scroll the page on a touch screen, so tapping the ring
-       is the way to lift the block there */
-    block.y = block.y > HALF + 0.2 ? HALF : 1.15;
+  if (mode === "depth" && moved < 9) {
+    /* tapping the ring lifts or lowers: on a touch screen that is quicker than a drag */
+    block.y = block.y > HALF + 0.2 ? HALF : SHOULDER_Y + 0.5 * D_MAX;
     clampBlock();
   }
   if (mode === "none" && moved < 9) {
-    /* a tap on the bench sends the block there */
+    /* a tap on the desk sends the block there */
     ndc.set(x, y);
     ray.setFromCamera(ndc, camera);
-    flat.set(new THREE.Vector3(0, 1, 0), -HALF);
-    if (ray.ray.intersectPlane(flat, hit)) {
+    dragPlane.set(new THREE.Vector3(0, 1, 0), -HALF);
+    if (ray.ray.intersectPlane(dragPlane, hit) && hit.distanceTo(new THREE.Vector3(0, HALF, 0)) < REACH_MAX + 1.5) {
       block.set(hit.x, HALF, hit.z);
       clampBlock();
+    } else {
+      mode = "none";
+      return;
     }
   }
   setState(STATE.WATCH, performance.now());
@@ -687,7 +965,6 @@ function pointerUp(x, y) {
   lastTouch = performance.now();
 }
 
-/* is the pointer over something grabbable? */
 function hoverAt(x, y) {
   ndc.set(x, y);
   ray.setFromCamera(ndc, camera);
@@ -705,7 +982,7 @@ function solveTo(p) {
   const dy = p.y - SHOULDER_Y;
 
   let d = Math.hypot(dx, dy);
-  d = clamp(d, Math.abs(L1 - L2) + 0.06, L1 + L2 - 0.02);
+  d = clamp(d, D_MIN, D_MAX);
 
   const c2 = (d * d - L1 * L1 - L2 * L2) / (2 * L1 * L2);
   const a2 = -Math.acos(clamp(c2, -1, 1));
@@ -713,8 +990,6 @@ function solveTo(p) {
   return { yaw, a1, a2, a3: -(a1 + a2) };
 }
 
-/* Each step sets the goal and then asks whether it is there yet, so the goal has
-   to be pulled onto the envelope here, before the comparison, not after. */
 function reached(tol) {
   clampToEnvelope(goal);
   return padWorld.distanceTo(goal) < tol;
@@ -727,14 +1002,16 @@ function sequence(now) {
 
   switch (state) {
     case STATE.REST:
-      goal.copy(REST);
+      restPoint(goal);
       wantShut = false;
       if (!reduceMotion && now - lastTouch > 4200 && now > autoAt) {
-        /* unattended: put the block somewhere new and go fetch it */
+        /* unattended: put the block somewhere new, sometimes in mid-air, and fetch it */
         const a = Math.random() * Math.PI * 2;
-        const r = 0.85 + Math.random() * 0.95;
+        const span = floorSpan(HALF);
+        const r = span.inner + 0.15 + Math.random() * (span.outer - span.inner - 0.4);
         const high = Math.random() < 0.45;
-        block.set(Math.cos(a) * r, high ? 0.6 + Math.random() * 0.8 : HALF, -Math.sin(a) * r);
+        block.set(Math.cos(a) * r, high ? HALF + 0.4 + Math.random() * 0.8 : HALF, -Math.sin(a) * r);
+        clampBlock();
         autoAt = now + 9000;
         setState(STATE.WATCH, now);
       }
@@ -765,13 +1042,13 @@ function sequence(now) {
       break;
 
     case STATE.LIFT:
-      goal.set(block.x, CARRY_Y, block.z);
+      goal.set(block.x, Math.max(block.y, carryY()), block.z);
       wantShut = true;
       if (reached(0.07) || t > 2200) setState(STATE.CARRY, now);
       break;
 
     case STATE.CARRY:
-      goal.set(HOME.x, CARRY_Y, HOME.z);
+      goal.set(HOME.x, carryY(), HOME.z);
       wantShut = true;
       if (reached(0.07) || t > 3600) setState(STATE.PLACE, now);
       break;
@@ -793,14 +1070,14 @@ function sequence(now) {
       break;
 
     case STATE.RETRACT:
-      goal.set(HOME.x, CARRY_Y + 0.1, HOME.z);
+      goal.set(HOME.x, carryY() + 0.1, HOME.z);
       wantShut = false;
       if (reached(0.09) || t > 2000) setState(STATE.REST, now);
       break;
   }
 
   /* an operator grabbing the block always wins */
-  if (mode === "slide" || mode === "lift") {
+  if (mode !== "none") {
     held = false;
     if (state !== STATE.WATCH) setState(STATE.WATCH, now);
   }
@@ -808,11 +1085,13 @@ function sequence(now) {
 
 /* ---------------------------------------------------------------- update */
 
+let cached = null;
+
 function update(now, dt) {
   padAnchor.getWorldPosition(padWorld);
   sequence(now);
 
-  /* the block is either in the claw or exactly where it was last put */
+  /* the block is either in the claw or exactly where it was last put: no gravity */
   if (held) block.copy(padWorld);
   clampBlock();
 
@@ -829,7 +1108,6 @@ function update(now, dt) {
   handle.visible = !held;
   handle.position.set(block.x, block.y + 0.28, block.z);
   handle.rotation.z += dt * 0.9;
-  handle.material.opacity = damp(handle.material.opacity, 0.85, 6, dt);
 
   stem.material.opacity = damp(stem.material.opacity, air ? 0.75 : 0, 8, dt);
   const pts = stem.geometry.attributes.position;
@@ -848,28 +1126,35 @@ function update(now, dt) {
   angles.a2 = damp(angles.a2, want.a2, 8.5, dt);
   angles.a3 = damp(angles.a3, want.a3, 8.5, dt);
   angles.gap = damp(angles.gap, wantShut ? GAP_SHUT : GAP_OPEN, 12, dt);
+  applyPose();
 
-  turret.rotation.y = angles.yaw;
-  shoulder.rotation.z = angles.a1;
-  elbow.rotation.z = angles.a2;
-  wrist.rotation.z = angles.a3;
-  fingerL.position.z = angles.gap / 2;
-  fingerR.position.z = -angles.gap / 2;
+  if (!reduceMotion) towerFans.forEach((f, i) => { f.rotation.z += dt * (9 + i * 2); });
 
-  const showing = mode === "slide" || mode === "lift";
-  showingLimit = showing;
+  /* the working volume brightens while you drag or retune the arm */
+  const dragging = mode !== "none";
+  const tuning = now - tunedAt < 2600;
+  const loud = dragging || tuning || atLimit;
+  showingLimit = dragging;
+  const vu = volume.userData;
+  vu.shellMat.opacity = damp(vu.shellMat.opacity, loud ? 0.028 : 0.012, 6, dt);
+  vu.lineMat.opacity = damp(vu.lineMat.opacity, loud ? 0.42 : 0.14, 6, dt);
   payloadGlow.material.opacity = damp(payloadGlow.material.opacity, held ? 0.6 : 0, 9, dt);
   pedestalRing.material.opacity = damp(pedestalRing.material.opacity, onPedestal(block) ? 0.22 : 0.6, 5, dt);
-  reachRing.material.opacity = damp(reachRing.material.opacity, atLimit ? 0.7 : showing ? 0.36 : 0.18, 6, dt);
-  envelope.material.opacity = damp(envelope.material.opacity, showing || atLimit ? 0.42 : 0, 7, dt);
+  reachRing.material.opacity = damp(reachRing.material.opacity, loud ? 0.12 : 0.04, 6, dt);
+  envelope.material.opacity = damp(envelope.material.opacity, loud ? 0.5 : 0, 7, dt);
 
   readout();
   if (screen) {
+    if (!cached || tuning) cached = stats();
     screen.draw(now, {
+      links: `${(L1 * 10).toFixed(1)} + ${(L2 * 10).toFixed(1)} + ${(CLAW_LEN * 10).toFixed(1)} cm`,
+      reach: `${cached.reachCm.toFixed(1)} cm   floor ${Math.round(cached.areaCm2)} cm2`,
+      volume: `${cached.litres.toFixed(1)} L swept`,
       j1: degText(wrap(angles.yaw)), j2: degText(angles.a1),
       j3: degText(angles.a2), j4: degText(angles.a3),
+      target: `x ${(block.x * 10).toFixed(1)}  y ${(block.y * 10).toFixed(1)}  z ${(block.z * 10).toFixed(1)}`,
       claw: held ? "HOLDING" : wantShut ? "CLOSING" : "OPEN",
-      state
+      state: atLimit && dragging ? "AT REACH LIMIT" : state
     });
   }
 }
@@ -886,6 +1171,7 @@ function readout() {
   deg(out.j4, angles.a3);
   if (out.claw) out.claw.textContent = held ? "HOLDING" : wantShut ? "CLOSING" : "OPEN";
   if (out.mode) out.mode.textContent = atLimit && showingLimit ? "AT REACH LIMIT" : state;
+  if (out.height) out.height.textContent = (block.y * 10).toFixed(1).padStart(5, "0") + " cm";
 }
 
 function degText(rad) {
@@ -895,6 +1181,5 @@ function degText(rad) {
 
 function deg(el, rad) {
   if (!el) return;
-  const v = (rad * 180) / Math.PI;
-  el.textContent = (v < 0 ? "-" : "+") + Math.abs(v).toFixed(1).padStart(5, "0");
+  el.textContent = degText(rad);
 }

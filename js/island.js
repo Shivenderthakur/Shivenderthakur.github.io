@@ -10,6 +10,7 @@ import { makeSkillRing } from "./icons.js";
 import { pbr, loadProp } from "./realism.js";
 
 export const GROUND = -1.4;
+const coarseDevice = window.matchMedia("(pointer: coarse)").matches;
 const AMBER = 0xf0a31e;
 
 const M = {
@@ -141,7 +142,7 @@ function frame(parent, { src, full, w, h, alt }, size, x, y, z, ry = 0, frames) 
   tex.anisotropy = 4;
   const pic = new THREE.Mesh(new THREE.PlaneGeometry(fw, fh), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55, metalness: 0, envMapIntensity: 0.4 }));
   pic.position.z = 0.035;
-  pic.userData = { full, alt };
+  pic.userData = { full, alt, src };
   g.add(pic);
   parent.add(g);
   frames.push(pic);
@@ -349,54 +350,131 @@ function lab(scene, reduceMotion, updaters) {
   g.add(lamp);
   shadows(g);
   const hit = hitBox(g, 10.5, 6, 7.5, 3);
-  return { group: g, focus: new THREE.Vector3(0, 2.0, -0.4), dist: 11, lift: 1.6, hits: [hit], panelAnchor: "#work-attendance" };
+  return { group: g, focus: new THREE.Vector3(0, 2.2, -0.8), dist: 13.5, lift: -0.4, hits: [hit], panelAnchor: "#work-attendance" };
+}
+
+/* A certificate hung the way a hall of fame hangs one: a matte brass moulding,
+   a cream mount, a lamp above and an engraved plate below. */
+const BRASS = new THREE.MeshStandardMaterial({ color: 0xa88a58, roughness: 0.62, metalness: 0.45 });
+const MOUNT = new THREE.MeshStandardMaterial({ color: 0xe6e0cf, roughness: 0.95, metalness: 0 });
+const LAMP = new THREE.MeshStandardMaterial({ color: 0x1b2321, roughness: 0.8, metalness: 0.2 });
+
+function plateTexture(title, sub) {
+  const c = document.createElement("canvas");
+  c.width = 512; c.height = 112;
+  const ctx = c.getContext("2d");
+  const grad = ctx.createLinearGradient(0, 0, 0, 112);
+  grad.addColorStop(0, "#b3955f"); grad.addColorStop(1, "#8a6f43");
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, 512, 112);
+  ctx.strokeStyle = "rgba(40,28,10,0.55)"; ctx.lineWidth = 3; ctx.strokeRect(6, 6, 500, 100);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#23180a"; ctx.font = "600 38px Archivo, Arial, sans-serif";
+  ctx.fillText(title, 256, 42, 480);
+  ctx.fillStyle = "#3b2c14"; ctx.font = "26px 'IBM Plex Mono', monospace";
+  ctx.fillText(sub, 256, 82, 480);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function honour(parent, item, x, y, z, frames) {
+  const aspect = item.h / item.w;
+  const fw = Math.min(1.7, 1.3 / aspect), fh = fw * aspect;
+  const g = new THREE.Group();
+  g.position.set(x, y, z);
+  parent.add(g);
+
+  const mount = new THREE.Mesh(new THREE.BoxGeometry(fw + 0.26, fh + 0.26, 0.04), MOUNT);
+  g.add(mount);
+  const bar = (w, h, px, py) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.09), BRASS); b.position.set(px, py, 0.02); g.add(b); };
+  const ow = fw + 0.38, oh = fh + 0.38;
+  bar(ow, 0.08, 0, oh / 2 - 0.04); bar(ow, 0.08, 0, -oh / 2 + 0.04);
+  bar(0.08, oh, ow / 2 - 0.04, 0); bar(0.08, oh, -ow / 2 + 0.04, 0);
+
+  const tex = loader.load(item.src);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  const pic = new THREE.Mesh(new THREE.PlaneGeometry(fw, fh), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, metalness: 0, envMapIntensity: 0.35 }));
+  pic.position.z = 0.03;
+  pic.userData = { full: item.full, alt: item.alt, src: item.src };
+  g.add(pic);
+  frames.push(pic);
+
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 0.3),
+    new THREE.MeshStandardMaterial({ map: plateTexture(item.title, item.sub), roughness: 0.55, metalness: 0.3 }));
+  plate.position.set(0, -oh / 2 - 0.22, 0.02);
+  g.add(plate);
+
+  /* picture lamp: an arm off the wall, a hood, and a warm strip under it */
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.34, 8), LAMP);
+  arm.rotation.x = Math.PI / 2;
+  arm.position.set(0, oh / 2 + 0.16, 0.17);
+  const hood = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.5, 16), LAMP);
+  hood.rotation.z = Math.PI / 2;
+  hood.position.set(0, oh / 2 + 0.16, 0.34);
+  const strip = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.012, 0.03), new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
+  strip.position.set(0, oh / 2 + 0.125, 0.34);
+  g.add(arm, hood, strip);
+  return g;
 }
 
 function hall(scene, frames) {
   const g = landmark(scene, "hall", 1, 16);
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(13, 0.3, 5), M.trim);
+  const W = 16;
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(W, 0.3, 6), M.trim);
   floor.position.y = 0.15;
   g.add(floor);
-  const wall = new THREE.Mesh(new THREE.BoxGeometry(13, 5, 0.3), M.wall);
-  wall.position.set(0, 2.8, -2.2);
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(W, 6.2, 0.3), new THREE.MeshStandardMaterial({ color: 0x22302c, roughness: 0.92 }));
+  wall.position.set(0, 3.4, -2.7);
   g.add(wall);
-  for (const x of [-6.3, 6.3]) {
-    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 5, 12), M.steel);
-    col.position.set(x, 2.8, 2.1);
+  const dado = new THREE.Mesh(new THREE.BoxGeometry(W, 0.12, 0.12), BRASS);
+  dado.position.set(0, 0.95, -2.5);
+  g.add(dado);
+  const runner = new THREE.Mesh(new THREE.PlaneGeometry(W - 1.5, 1.6), new THREE.MeshStandardMaterial({ color: 0x5a1f1a, roughness: 1 }));
+  runner.rotation.x = -Math.PI / 2;
+  runner.position.set(0, 0.31, -0.6);
+  g.add(runner);
+  for (const x of [-W / 2 + 0.4, W / 2 - 0.4]) {
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 6.2, 16), M.steel);
+    col.position.set(x, 3.4, 2.5);
     g.add(col);
   }
-  const lintel = new THREE.Mesh(new THREE.BoxGeometry(13.4, 0.5, 5), M.roof);
-  lintel.position.y = 5.5;
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(W + 0.4, 0.55, 6), M.roof);
+  lintel.position.y = 6.75;
   g.add(lintel);
 
   const C = "assets/certs/";
   const certs = [
-    ["nptel-deep-learning-iit-ropar-2025", 280, 200, "NPTEL Deep Learning, IIT Ropar"],
-    ["cadd-autofina-robotics-360h-2023", 280, 198, "Robotics and Automation, CADD Centre"],
-    ["roboai-hub-180-day-internship-2024", 280, 384, "RoboAI Hub 180-day internship"],
-    ["ccna-enterprise-networking-2023", 280, 189, "Cisco CCNAv7 Enterprise"],
-    ["ccna-switching-routing-2023", 280, 189, "Cisco CCNAv7 Switching"],
-    ["straightarc-cyber-security-2024", 280, 157, "Cyber Security Fundamentals"],
-    ["pm-shri-kv-mount-abu-2025", 280, 406, "PM SHRI KV Mount Abu training"],
-    ["academor-2023", 280, 217, "Academor"],
-    ["linkedin-linux-cli-2025", 280, 217, "Linux command line"],
-    ["linkedin-ecmascript-2025", 280, 217, "ECMAScript 6+"],
-    ["devtown-python-ai-2023", 280, 208, "devTown Python and AI"]
+    ["nptel-deep-learning-iit-ropar-2025", 280, 200, "NPTEL Elite certificate in Deep Learning, IIT Ropar, 2025", "DEEP LEARNING", "NPTEL Elite · IIT Ropar"],
+    ["cadd-autofina-robotics-360h-2023", 280, 198, "Advanced certificate in Robotics and Automation, CADD Centre and Autofina Robotics, 360 hours, 2023", "ROBOTICS & AUTOMATION", "CADD Centre · 360 h"],
+    ["roboai-hub-180-day-internship-2024", 280, 384, "RoboAI Hub certificate for a 180-day AI internship programme, 2024", "AI INTERNSHIP", "RoboAI Hub · 180 days"],
+    ["ccna-enterprise-networking-2023", 280, 189, "Cisco CCNAv7 Enterprise Networking, Security and Automation, 2023", "CCNAv7 ENTERPRISE", "Cisco · 2023"],
+    ["ccna-switching-routing-2023", 280, 189, "Cisco CCNAv7 Switching, Routing and Wireless Essentials, 2023", "CCNAv7 SWITCHING", "Cisco · 2023"],
+    ["straightarc-cyber-security-2024", 280, 157, "StraightArc certificate in Cyber Security Fundamentals, 12 hours, 2024", "CYBER SECURITY", "StraightArc · 12 h"],
+    ["pm-shri-kv-mount-abu-2025", 280, 406, "Certificate for training delivered at PM SHRI Kendriya Vidyalaya, Mount Abu, 2025", "TRAINING DELIVERED", "PM SHRI KV · Mount Abu"],
+    ["academor-2023", 280, 217, "Academor certificate of outstanding performance, 2023", "OUTSTANDING PERFORMANCE", "Academor · 2023"],
+    ["linkedin-linux-cli-2025", 280, 217, "LinkedIn Learning certificate, Learning Linux Command Line, 2025", "LINUX COMMAND LINE", "LinkedIn Learning"],
+    ["linkedin-ecmascript-2025", 280, 217, "LinkedIn Learning certificate, Learning ECMAScript 6+, 2025", "ECMASCRIPT 6+", "LinkedIn Learning"],
+    ["devtown-python-ai-2023", 280, 208, "devTown certificate, seven-day Python and AI bootcamp, 2023", "PYTHON & AI", "devTown · 2023"]
   ];
-  certs.forEach(([n, w, h, alt], i) => {
+  const STEP = 2.45;
+  certs.forEach(([n, w, h, alt, title, sub], i) => {
     const row = i < 6 ? 0 : 1;
     const col = row === 0 ? i : i - 6;
     const count = row === 0 ? 6 : 5;
-    frame(g, { src: C + n + ".jpg", full: C + n + "-full.jpg", w, h, alt }, 1.5,
-      -((count - 1) * 1.95) / 2 + col * 1.95, row === 0 ? 3.9 : 1.9, -2.03, 0, frames);
+    honour(g, { src: C + n + ".jpg", full: C + n + "-full.jpg", w, h, alt, title, sub },
+      -((count - 1) * STEP) / 2 + col * STEP, row === 0 ? 4.55 : 2.2, -2.5, frames);
   });
-  const s = sign("CREDENTIALS"); s.position.set(0, 5.5, 2.52); g.add(s);
-  const light = new THREE.PointLight(0xffe9c8, 16, 14, 2);
-  light.position.set(0, 4.2, 1.5);
-  g.add(light);
+  const s = sign("HALL OF FAME"); s.position.set(0, 6.75, 3.02); g.add(s);
+  for (const x of [-5, 0, 5]) {
+    const light = new THREE.SpotLight(0xffe6c0, 16, 14, 0.75, 0.6, 1.6);
+    light.position.set(x, 6.2, 1.8);
+    light.target.position.set(x, 3.2, -2.5);
+    g.add(light, light.target);
+  }
   shadows(g);
-  const hit = hitBox(g, 13.5, 6, 5.5, 3);
-  return { group: g, focus: new THREE.Vector3(0, 2.9, -1.2), dist: 10.5, lift: 0.6, hits: [hit] };
+  const hit = hitBox(g, W + 0.5, 7, 6.5, 3.4);
+  return { group: g, focus: new THREE.Vector3(0, 3.2, -1.6), dist: 18.5, lift: -0.8, hits: [hit] };
 }
 
 function skills(scene, reduceMotion, updaters) {
@@ -517,14 +595,63 @@ export function buildIsland(scene, { reduceMotion }) {
   place(builds.group, "industrial_microscope", 0.95, -3.9, 1.06, -0.25, 0.4);
   place(press.group, "Television_01", 1.2, 3.4, 0.8, 0.7, -0.35);
   const board = new THREE.Group();
-  board.position.set(0, 0.3, 1.3);
+  board.position.set(6.6, 0.3, 1.6);
   creds.group.add(board);
   board.add(plinth(0.7, 1.0));
   place(board, "circuit_board", 1.1, 0, 1.02, 0, 0.3);
+
+  /* the hardware shelf in the lab: the boards and sensors the work ran on,
+     converted from their CAD exports, and the arm itself on a turntable */
+  const shelf = (y) => {
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.08, 0.6), M.wood);
+    plank.position.set(0, y, -3.0);
+    builds.group.add(plank);
+    for (const x of [-4.2, 0, 4.2]) {
+      const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.3, 0.5), M.steel);
+      bracket.position.set(x, y - 0.18, -3.02);
+      builds.group.add(bracket);
+    }
+  };
+  shelf(2.3); shelf(3.05);
+  const hw = coarseDevice
+    ? [["boards/arduino-uno", 1.1, -1.4, 3.09, -0.7], ["sensors/hc-sr04-ultrasonic", 0.8, 1.4, 3.09, -0.3]]
+    : [
+        ["boards/arduino-uno", 1.15, -3.3, 3.09, -0.7],
+        ["boards/raspberry-pi-5", 1.15, -1.1, 3.09, -0.7],
+        ["boards/raspberry-pi-4b", 1.15, 1.1, 3.09, -0.7],
+        ["boards/arduino-nano-every", 1.0, 3.3, 3.09, -0.7],
+        ["sensors/hc-sr04-ultrasonic", 0.8, -3.8, 2.34, -0.3],
+        ["sensors/pir-motion", 0.5, -2.55, 2.34, 0],
+        ["sensors/ir-sensor", 0.75, -1.3, 2.34, -0.5],
+        ["sensors/dht11-temperature-humidity", 0.48, -0.1, 2.34, 0],
+        ["sensors/imu-accelerometer-gyroscope", 0.62, 1.1, 2.34, -0.6],
+        ["sensors/mq135-air-quality", 0.62, 2.35, 2.34, -0.3],
+        ["sensors/touch-sensor", 0.7, 3.65, 2.34, -0.6]
+      ];
+  hw.forEach(([name, size, x, y, tilt]) =>
+    loadProp(name, size).then((prop) => {
+      if (!prop) return;
+      prop.position.set(x, y, -3.0);
+      prop.rotation.x = tilt;
+      builds.group.add(prop);
+    }));
+  loadProp("robotics/robotic-arm", 1.7).then((arm) => {
+    if (!arm) return;
+    const turntable = new THREE.Group();
+    turntable.position.set(3.7, 0.2, 1.7);
+    turntable.add(plinth(0.75, 0.5));
+    arm.position.y = 0.5;
+    turntable.add(arm);
+    builds.group.add(turntable);
+    updaters.push((dt) => { if (!reduceMotion) arm.rotation.y += dt * 0.35; });
+  });
   place(scene, "desk_lamp_arm_01", 1.6, 2.3, 0, -1.9, -2.3);
   all.forEach((l) => { const p = l.group.position; path(scene, p.x, p.z); });
 
-  trees(scene, [[0, 0, 7], [-12, -10, 4.5], [11, -11, 7], [15, 3, 7.5], [1, 16, 8], [-15, 5, 6], [-9, -1.5, 4.5], [9, 12, 3.5], [4.3, -4.6, 2.5]]);
+  /* the last three keep the hall's camera line clear: it stands well back so the
+     whole wall of certificates fits, offset to the side of the open panel */
+  trees(scene, [[0, 0, 7], [-12, -10, 4.5], [11, -11, 7], [15, 3, 7.5], [1, 16, 8], [-15, 5, 6], [-9, -1.5, 4.5], [9, 12, 3.5], [4.3, -4.6, 2.5],
+    [-3.2, 3.5, 3.4], [-1.6, 8.2, 3.6], [-0.2, 11.8, 3.4], [3.2, 12.4, 2.8]]);
 
   /* world-space focus for each place */
   const toWorld = (l) => l.group.localToWorld(l.focus.clone());

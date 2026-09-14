@@ -51,9 +51,18 @@ function boot() {
   bench = createBench({ scene, camera, reduceMotion, readout: {
     j1: document.getElementById("j1"), j2: document.getElementById("j2"),
     j3: document.getElementById("j3"), j4: document.getElementById("j4"),
-    claw: document.getElementById("claw"), mode: document.getElementById("mode")
+    claw: document.getElementById("claw"), mode: document.getElementById("mode"),
+    height: document.getElementById("hgt")
   } });
   island = buildIsland(scene, { reduceMotion });
+  bindRig();
+  /* ?debug exposes the block's screen position, for the headless interaction tests */
+  if (new URLSearchParams(location.search).has("debug")) {
+    window.__blockScreen = () => {
+      const v = bench.block().project(camera);
+      return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight, world: bench.block().toArray() };
+    };
+  }
 
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   try { composer = makeComposer(renderer, scene, camera, { coarse }); } catch (err) { console.warn(err); composer = null; }
@@ -96,6 +105,8 @@ const wantTarget = new THREE.Vector3();
 
 let current = null;          // the place in focus, or null for the overview
 let orbitNudge = 0;          // how far the reader has turned while at a place
+let orbitTilt = 0;           // and how far they have looked up or down
+let zoomNudge = 1;
 let lastInput = 0;
 
 function desired() {
@@ -113,10 +124,10 @@ function desired() {
 
   const p = current;
   const dir = p.dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), orbitNudge);
-  const dist = p.dist * (narrow ? 1.25 : 1);
+  const dist = p.dist * (narrow ? 1.25 : 1) * zoomNudge;
   wantTarget.copy(p.focus);
   wantEye.copy(p.focus).addScaledVector(dir, dist);
-  wantEye.y += p.lift + 1.6;
+  wantEye.y += p.lift + 1.6 + orbitTilt * dist;
 
   /* move the camera sideways so the landmark sits clear of the open panel */
   const forward = wantTarget.clone().sub(wantEye).normalize();
@@ -173,7 +184,7 @@ function pick(e) {
   const skillHit = ray.intersectObjects(island.skillItems.map((i) => i.holder), true)[0];
   const best = [frameHit, skillHit, placeHit].filter(Boolean).sort((a, b) => a.distance - b.distance)[0];
   if (!best) return null;
-  if (best === frameHit) return { kind: "frame", data: frameHit.object.userData };
+  if (best === frameHit) return { kind: "frame", data: frameHit.object.userData, object: frameHit.object };
   if (best === skillHit) {
     let o = skillHit.object;
     while (o && !o.userData.skill) o = o.parent;
@@ -234,7 +245,11 @@ function bindPointer() {
       return;
     }
     if (current) {
-      orbitNudge = clamp(orbitNudge - dx * 0.004, -0.9, 0.9);
+      /* at the workbench the view goes all the way round and over the arm,
+         because turning the view is what turns the plane the block is dragged in */
+      const free = current.key === "bench";
+      orbitNudge = free ? orbitNudge - dx * 0.005 : clamp(orbitNudge - dx * 0.004, -0.9, 0.9);
+      orbitTilt = clamp(orbitTilt + dy * 0.003, free ? -0.25 : -0.12, free ? 0.9 : 0.3);
     } else {
       aim.theta -= dx * 0.005;
       aim.phi = clamp(aim.phi - dy * 0.004, 0.45, 1.38);
@@ -252,7 +267,11 @@ function bindPointer() {
       bench.pointerUp(ndc.x, ndc.y);
     } else if (tap) {
       const hit = pick(e);
-      if (hit?.kind === "frame") openViewer(hit.data);
+      if (hit?.kind === "frame") {
+        /* the gallery is every frame hung on the same wall */
+        const wall = island.frames.filter((f) => f.parent === hit.object.parent).map((f) => f.userData);
+        openViewer(hit.data, wall);
+      }
       else if (hit?.kind === "skill") { go("skills"); showLabel(hit); }
       else if (hit?.kind === "place") go(hit.data.key);
       else if (current?.key === "bench") { toNdc(e); bench.pointerDown(ndc.x, ndc.y); bench.pointerUp(ndc.x, ndc.y); }
@@ -267,6 +286,7 @@ function bindPointer() {
     e.preventDefault();
     lastInput = performance.now() / 1000;
     if (!current) aim.radius = clamp(aim.radius * (1 + Math.sign(e.deltaY) * 0.08), 24, 80);
+    else zoomNudge = clamp(zoomNudge * (1 + Math.sign(e.deltaY) * 0.07), 0.55, 1.6);
   }, { passive: false });
 }
 
@@ -287,6 +307,8 @@ function go(keyName, { replace = false } = {}) {
   if (!place) return;
   current = place;
   orbitNudge = 0;
+  orbitTilt = 0;
+  zoomNudge = 1;
   document.body.classList.add("is-exploring", "is-focused");
   document.body.dataset.place = place.key;
 
@@ -338,13 +360,123 @@ function fromHash() {
   }
 }
 
-function openViewer({ full, alt }) {
-  if (!viewer) { window.open(full, "_blank", "noopener"); return; }
-  document.getElementById("viewer-img").src = full;
-  document.getElementById("viewer-img").alt = alt;
-  document.getElementById("viewer-cap").textContent = alt;
-  viewer.showModal();
+/* ----------------------------------------------------------------- viewer */
+
+/* One viewer for every picture on the site. It always opens on a gallery, the
+   wall or evidence strip the picture belongs to, and moves through it by
+   swipe, arrow keys, the side buttons or the thumbnail strip. */
+
+const gallery = { list: [], i: 0 };
+
+function openViewer(item, list = [item]) {
+  if (!viewer) { window.open(item.full, "_blank", "noopener"); return; }
+  gallery.list = list.length ? list : [item];
+  gallery.i = Math.max(0, gallery.list.findIndex((x) => x.full === item.full));
+  buildThumbs();
+  showSlide(0);
+  if (!viewer.open) viewer.showModal();
 }
+
+function showSlide(dir) {
+  const { list, i } = gallery;
+  const it = list[i];
+  const img = document.getElementById("viewer-img");
+  img.classList.remove("from-left", "from-right");
+  void img.offsetWidth;
+  if (dir) img.classList.add(dir > 0 ? "from-right" : "from-left");
+  img.src = it.full;
+  img.alt = it.alt || "";
+  document.getElementById("viewer-cap").textContent = it.alt || "";
+  document.getElementById("viewer-count").textContent = list.length > 1 ? `${i + 1} / ${list.length}` : "";
+  viewer.classList.toggle("is-single", list.length < 2);
+  document.querySelectorAll("#viewer-thumbs button").forEach((b, k) => {
+    b.setAttribute("aria-current", k === i ? "true" : "false");
+    if (k === i) b.scrollIntoView({ block: "nearest", inline: "center" });
+  });
+  /* warm the neighbours so a swipe never waits */
+  [i - 1, i + 1].forEach((k) => { const n = list[(k + list.length) % list.length]; if (n) new Image().src = n.full; });
+}
+
+function stepSlide(by) {
+  const n = gallery.list.length;
+  if (n < 2) return;
+  gallery.i = (gallery.i + by + n) % n;
+  showSlide(by);
+}
+
+function buildThumbs() {
+  const strip = document.getElementById("viewer-thumbs");
+  strip.replaceChildren(...gallery.list.map((it, k) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.setAttribute("aria-label", it.alt || `Picture ${k + 1}`);
+    const t = document.createElement("img");
+    t.src = it.src || it.full;
+    t.alt = "";
+    t.loading = "lazy";
+    b.append(t);
+    b.addEventListener("click", () => { const by = k - gallery.i; gallery.i = k; showSlide(by); });
+    return b;
+  }));
+}
+
+function bindViewer() {
+  if (!viewer) return;
+  document.getElementById("viewer-prev").addEventListener("click", () => stepSlide(-1));
+  document.getElementById("viewer-next").addEventListener("click", () => stepSlide(1));
+  viewer.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight") { e.preventDefault(); stepSlide(1); }
+    if (e.key === "ArrowLeft") { e.preventDefault(); stepSlide(-1); }
+  });
+  /* a click on the dimmed backdrop closes */
+  viewer.addEventListener("click", (e) => { if (e.target === viewer) viewer.close(); });
+
+  const stage = document.getElementById("viewer-stage");
+  let sx = 0, sy = 0, id = null;
+  stage.addEventListener("pointerdown", (e) => { id = e.pointerId; sx = e.clientX; sy = e.clientY; });
+  stage.addEventListener("pointerup", (e) => {
+    if (e.pointerId !== id) return;
+    id = null;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) stepSlide(dx < 0 ? 1 : -1);
+  });
+  stage.addEventListener("pointercancel", () => { id = null; });
+}
+
+/* ------------------------------------------------------------ arm tuning */
+
+function bindRig() {
+  const form = document.getElementById("rig");
+  if (!form) return;
+  const keys = ["base", "l1", "l2", "claw"];
+  const start = bench.getDims();
+  if (!coarse && window.innerWidth >= 992) form.open = true;
+
+  const show = (s) => {
+    keys.forEach((k) => {
+      const input = document.getElementById("rig-" + k);
+      input.value = (s.dims[k] * 10).toFixed(1);
+      input.nextElementSibling.textContent = (s.dims[k] * 10).toFixed(1) + " cm";
+    });
+    document.getElementById("rig-reach").textContent = s.reachCm.toFixed(1) + " cm";
+    document.getElementById("rig-top").textContent = s.heightCm.toFixed(1) + " cm";
+    document.getElementById("rig-area").textContent = Math.round(s.areaCm2).toLocaleString("en-IN") + " cm²";
+    document.getElementById("rig-volume").textContent = s.litres.toFixed(1) + " L";
+  };
+
+  keys.forEach((k) => {
+    const input = document.getElementById("rig-" + k);
+    const [lo, hi] = bench.LIMITS[k];
+    input.min = (lo * 10).toFixed(1);
+    input.max = (hi * 10).toFixed(1);
+    input.step = "0.1";
+    input.addEventListener("input", () => show(bench.setDims({ [k]: +input.value / 10 })));
+  });
+  document.getElementById("rig-reset").addEventListener("click", () => show(bench.setDims(start)));
+  show(bench.stats());
+}
+
+
 
 function bindPanels() {
   document.querySelectorAll("[data-place]").forEach((a) => {
@@ -363,14 +495,20 @@ function bindPanels() {
     document.body.classList.remove("is-exploring");
   });
 
-  /* scans inside the panels open in the same viewer rather than a new tab */
+  /* scans inside the panels open in the same viewer, as a gallery of their strip */
+  const asItem = (a) => {
+    const img = a.querySelector("img");
+    return { full: a.getAttribute("href"), src: img ? img.getAttribute("src") : "", alt: img ? img.alt : "" };
+  };
   document.querySelectorAll(".evidence a, .wall a").forEach((a) => {
     a.addEventListener("click", (e) => {
       e.preventDefault();
-      const img = a.querySelector("img");
-      openViewer({ full: a.getAttribute("href"), alt: img ? img.alt : "" });
+      const group = a.closest(".evidence, .wall");
+      const list = group ? [...group.querySelectorAll("a")].filter((x) => x.querySelector("img")).map(asItem) : [];
+      openViewer(asItem(a), list);
     });
   });
+  bindViewer();
 
   window.addEventListener("keydown", (e) => {
     if (viewer?.open) return;

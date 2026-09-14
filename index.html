@@ -163,8 +163,28 @@
       <span class="hud__line"><b>J3</b><i id="j3">+000.0</i></span>
       <span class="hud__line"><b>J4</b><i id="j4">+000.0</i></span>
       <span class="hud__line"><b>CLAW</b><i id="claw">OPEN</i></span>
+      <span class="hud__line"><b>HGT</b><i id="hgt">001.2 cm</i></span>
       <span class="hud__line hud__mode"><b>MODE</b><i id="mode">AT REST</i></span>
     </div>
+
+    <details class="rig" id="rig">
+      <summary>Tune the arm</summary>
+      <div class="rig__body">
+        <label><span>Base height</span><input type="range" id="rig-base"><output>6.6 cm</output></label>
+        <label><span>Upper arm</span><input type="range" id="rig-l1"><output>11.2 cm</output></label>
+        <label><span>Forearm</span><input type="range" id="rig-l2"><output>9.5 cm</output></label>
+        <label><span>Claw</span><input type="range" id="rig-claw"><output>3.4 cm</output></label>
+        <dl class="rig__stats">
+          <div><dt>Reach</dt><dd id="rig-reach">&ndash;</dd></div>
+          <div><dt>Top</dt><dd id="rig-top">&ndash;</dd></div>
+          <div><dt>Floor area</dt><dd id="rig-area">&ndash;</dd></div>
+          <div><dt>Working volume</dt><dd id="rig-volume">&ndash;</dd></div>
+        </dl>
+        <button type="button" class="rig__reset" id="rig-reset">Reset</button>
+        <p class="rig__hint">Drag the block to move it anywhere in the dome, in mid-air too.
+        Drag the ring above it to slide it at that height. Drag empty space to walk round the arm.</p>
+      </div>
+    </details>
 
     <button class="world-grab" id="world-grab" type="button" aria-pressed="false" hidden>Take control</button>
     <p class="world-hint" id="world-hint">Drag to look around. Click a landmark to walk over to it.</p>
@@ -179,15 +199,27 @@
       around: a constraint you cannot argue with, a deadline that is a public event, and a
       machine that either works in front of people or does not.</p>
 
-      <p>I compiled DLIB from source on a 1 GB Raspberry Pi because the wheels would not
-      install, and the build took four hours. I designed a UART protocol between an Arduino
-      Nano and a Pi because no library did what the joints needed. When an Arduino Mega hit its
-      wireless ceiling I moved the whole codebase to ESP32 rather than wait. None of that is
-      remarkable on its own. Together it is a habit: find the thing that is actually blocking,
-      remove it, keep shipping.</p>
+      <p>The work on this page follows one pattern, and it is worth spelling out because it is
+      the thing a client is actually buying. First, find the constraint that binds. It is almost
+      never the one in the brief. On the humanoid it was not face recognition, it was 1 GB of
+      RAM. On the attendance system it was not the algorithm, it was a library that would not
+      install. On the servo arm it was not motion, it was the wireless ceiling of the board.
+      Second, remove that constraint directly, even when the direct route is slow and unglamorous:
+      a four-hour DLIB compile on the Pi itself, a UART protocol written from nothing because no
+      library did what the joints needed, a whole codebase moved from an Arduino Mega to an ESP32
+      mid-build rather than waiting for a better board. Third, keep the rest of the system
+      boring, so that the only new risk is the one you chose.</p>
+
+      <p>That order matters more than any single skill. Reading the field comes before writing
+      code, measuring the hardware comes before choosing a model, and a working thing on a bench
+      comes before a slide about it. It is also why I am honest about speed: a field next to
+      technology is productive in days, a field far from it costs reading time first.</p>
 
       <p>Now I run that habit as a practice. A client brings a field I may not know, and seven
-      days later there is something on a bench that runs.</p>
+      days later there is something on a bench that runs. The arm beside this panel is a small
+      version of the same idea: change its link lengths in the controls and the inverse
+      kinematics, the reach limits and the working volume are all recomputed from four numbers,
+      live, the way a real rig is re-specified when the brief changes.</p>
 
       <figure class="station station--prose" aria-hidden="true">
         <figcaption><b>SERIAL&nbsp;LINK</b>A UART frame written from scratch</figcaption>
@@ -213,10 +245,29 @@
       </div>
       <div class="body">
         <h3>The sprint</h3>
-        <p>Day one is reading and scoping: the vocabulary of the field, the constraint that
-        actually binds, and the one question worth answering. Days two to four are a working
-        prototype on real hardware, not a simulation. Days five to seven are hardening,
-        documentation and handover. The deliverable is the thing that runs.</p>
+        <p>A sprint is seven days, fixed, and the deliverable is the thing that runs. Fixing the
+        length rather than the scope is deliberate: it forces the first day to decide what is
+        worth answering, instead of letting the question grow until the week is gone.</p>
+        <div class="how">
+          <h4>How the week is spent</h4>
+          <ol class="steps">
+            <li><b>Day 1, read and scope.</b> Learn the vocabulary of the field well enough to
+            ask the client the right questions. Name the one constraint that binds, whether it is
+            memory, latency, power, connectivity or a regulation, and write down the single
+            question the prototype has to answer.</li>
+            <li><b>Days 2 to 4, build on real hardware.</b> Not a simulation and not a notebook.
+            The cheapest board that could plausibly do the job comes first, because a prototype
+            that only works on a workstation has not answered anything about the field.</li>
+            <li><b>Days 5 to 7, harden and hand over.</b> Run it the way it will be used, fix what
+            breaks, document the decisions and the dead ends, and hand over something the client's
+            own people can run without me in the room.</li>
+          </ol>
+          <h4>Why it holds up</h4>
+          <p>Every build on this page was shaped by a live deadline, a stage, a competition, a
+          public demonstration, a camp starting on a fixed date. That is the same pressure a
+          sprint puts on the work, and it rewards the same habits: remove the binding constraint
+          first and keep everything else boring.</p>
+        </div>
       </div>
       <figure class="station" aria-hidden="true">
         <figcaption><b>SPRINT&nbsp;DIALS</b>Two clocks, one geared slower</figcaption>
@@ -235,6 +286,13 @@
         failure modes are familiar. A domain far from tech takes longer, because the reading
         comes first and there is no shortcut through it. I scope and price against that curve
         rather than pretend it is flat.</p>
+        <p>The ramp is really about where the unknowns sit. In an IoT problem the unknowns are
+        technical, a sensor that drifts or a link that drops, and I already have the instruments
+        to find them. In a field like labour law the unknowns are in the domain itself: what the
+        rules say, which exceptions matter, which answer would be wrong in a way only a
+        specialist would notice. Those cannot be debugged, only read. So the first days of a
+        far-field sprint go to sources and to questions for the client, and the build starts
+        later, but it starts on firmer ground.</p>
       </div>
     </article>
 
@@ -260,7 +318,7 @@
   <section class="panel" id="work" data-panel aria-labelledby="work-h">
     <div class="section-head">
       <h2 id="work-h">Work</h2>
-      <p class="section-note">Five builds that went outside the lab. Evidence attached where it exists.</p>
+      <p class="section-note">Five builds that went outside the lab. Each one says what bound it, how it was done, and why that worked. Evidence attached where it exists.</p>
     </div>
 
     <article class="entry entry--lead" id="work-robonari">
@@ -271,17 +329,45 @@
       <div class="body">
         <h3>The intelligence layer of a humanoid that went on stage</h3>
         <p>The robot was built by a team led by the scientist Narayan Jangid over three years.
-        I built its software: face recognition, the conversation engine and the speech pipeline.
-        I was on stage when it was shown.</p>
-        <p>It ran on a Raspberry Pi 3B+ configured headless over SSH and VNC, with the Wi-Fi
-        written into <code>wpa_supplicant</code> by hand. DLIB would not install, so I compiled
-        it from source with CMake on the Pi itself, a four-hour build on 1 GB of RAM. The
-        recognition module remembers who it has already greeted and answers team members
-        differently from strangers. The conversation engine streams GPT-3.5-turbo with a persona
-        that shifts by speaker, voiced through gTTS and ffmpeg. Raspbian Lite with a
-        hand-installed lightweight desktop kept about seventy per cent of the memory for the
-        application, which on 1 GB is the difference between a robot that runs and one that
-        stops in front of an audience.</p>
+        I built its software: face recognition, the conversation engine and the speech pipeline,
+        in three months, as a diploma student, with no documentation to work from. I was on
+        stage when it was shown.</p>
+        <div class="how">
+          <h4>The constraint that bound</h4>
+          <p>Everything had to run on a Raspberry Pi 3B+ with 1 GB of RAM, sealed inside a robot
+          body with no screen or keyboard attached. That single fact decided more of the design
+          than any feature did. Face recognition, a language model client, text to speech and
+          motor control all had to share one small board, and a crash would happen in front of
+          an audience.</p>
+          <h4>How I did it</h4>
+          <ol class="steps">
+            <li><b>Made the Pi reachable without a screen.</b> SSH through PuTTY, VNC for a remote
+            desktop, and the Wi-Fi written into <code>wpa_supplicant.conf</code> by hand. Every
+            deployment and every debugging session after that ran over the network.</li>
+            <li><b>Removed the blocker before writing features.</b> Face recognition depends on
+            DLIB, and it would not install on the Pi. I compiled it from source with CMake on the
+            Pi itself, a four-hour build on 1 GB of RAM, because nothing else could move until it
+            existed.</li>
+            <li><b>Gave recognition a memory.</b> The module identifies people in real time,
+            remembers who it has already greeted, and answers team members differently from
+            strangers, so the robot does not greet the same person every few seconds.</li>
+            <li><b>Built the voice.</b> A conversation engine streaming GPT-3.5-turbo, with a persona
+            that shifts by speaker, voiced through a gTTS and ffmpeg pipeline tuned for natural
+            cadence.</li>
+            <li><b>Closed the loop on the joints.</b> In the second phase I designed a UART protocol
+            between an Arduino Nano and the Pi to read joint positions from potentiometers in real
+            time, and calibrated 25 kg·cm metal-geared servos: PWM tuning, duty-cycle mapping and
+            movement sequencing across shoulder, hand and base.</li>
+            <li><b>Bought back the memory.</b> Raspbian Lite with a hand-installed lightweight
+            desktop kept about seventy per cent of the RAM free for the application.</li>
+          </ol>
+          <h4>Why it worked</h4>
+          <p>The last step is the one that mattered on the day. On 1 GB, the difference between a
+          full desktop and a minimal one is the difference between a robot that runs and one that
+          stops mid-sentence. Treating memory as the design constraint from the first hour, rather
+          than as a problem to fix at the end, is what let four heavy subsystems share one small
+          board on a public stage eight months later.</p>
+        </div>
         <ul class="facts">
           <li><span>Compute budget</span> 1 GB Raspberry Pi 3B+</li>
           <li><span>DLIB build</span> 4 hours, on the Pi</li>
@@ -338,13 +424,36 @@
       </div>
       <div class="body">
         <h3>A face-recognition attendance system, and the four people who built it</h3>
-        <p>I led the team. The system runs fully locally with no AI APIs: DLIB and OpenCV for
-        detection and recognition, a camera streamed over Wi-Fi so deployment did not depend on
-        whatever hardware was in the room, a Tkinter desktop interface that works offline, and
-        automated Excel session reports that replaced marking a register by hand.</p>
-        <p>The first problem was not the algorithm. Standard DLIB wheels failed on the lab
-        machines, so I compiled it from source to unblock the pipeline before anyone wrote a
-        line of recognition logic.</p>
+        <p>I led a four-person team to build a real-time face-recognition attendance system that
+        runs fully locally, with no AI APIs. It won first prize at the college's annual project
+        competition and was selected as the best project across all computer science final-year
+        teams.</p>
+        <div class="how">
+          <h4>The problem</h4>
+          <p>Attendance was marked by hand in a register. The replacement had to work in an
+          ordinary classroom, on ordinary lab machines, without an internet connection or a paid
+          service behind it, and it had to produce a record a teacher could actually use.</p>
+          <h4>How we did it</h4>
+          <ol class="steps">
+            <li><b>Unblocked the environment first.</b> The first problem was not the algorithm.
+            Standard DLIB wheels failed on the lab machines, so I compiled DLIB from source to
+            unblock the pipeline before anyone wrote a line of recognition logic. A team of four
+            cannot work in parallel while the foundation will not install.</li>
+            <li><b>Kept recognition on the machine.</b> Detection and recognition with DLIB and
+            OpenCV against a database of facial encodings for known students. Nothing leaves the
+            room, which is also why it works without a network.</li>
+            <li><b>Decoupled the camera.</b> The video is streamed over Wi-Fi through Iriun Webcam,
+            so the system does not depend on whatever camera happens to be plugged into the room's
+            computer.</li>
+            <li><b>Built for the person using it.</b> A Tkinter desktop interface that runs offline,
+            and automated Excel session reports with name, timestamp and date, so the output is a
+            file a teacher already knows how to open.</li>
+          </ol>
+          <h4>What it shows</h4>
+          <p>Each decision removes a dependency: on a wheel that would not install, on a cloud
+          API, on a specific camera, on a network. A system with fewer things it depends on has
+          fewer ways to fail on the day it is judged.</p>
+        </div>
         <ul class="facts">
           <li><span>Team</span> 4 people, led</li>
           <li><span>Result</span> 1st prize, best final-year project</li>
@@ -374,15 +483,35 @@
       </div>
       <div class="body">
         <h3>KineLink, a gesture-controlled arm in seven days</h3>
-        <p>I studied the DAWN remote-pilot system behind Japan's Avatar Robot Café, worked out
-        how the piloting loop held together, and built my own version in seven days. A laptop, a
-        camera, connections soldered on zero-PCB, and a base made from an empty tape roller. No
-        lab and no equipment budget.</p>
-        <p>MediaPipe Pose tracks shoulder, elbow and wrist. I compute the joint angles with
-        arctan2 geometry and map them to servo positions; MediaPipe Hands detects a closed fist
-        and drives the gripper. Commands stream over a serial protocol I designed, index then
-        angle then terminator, parsed by either an Arduino or an ESP32, so the arm is
-        hardware-agnostic by design.</p>
+        <p>Move your arm and the robot mirrors it in real time over serial, with no cloud. I
+        studied the DAWN remote-pilot system behind Japan's Avatar Robot Café, worked out how its
+        piloting loop held together, and built my own version in seven days. A laptop, a camera,
+        connections soldered on zero-PCB, and a base made from an empty tape roller. No lab and no
+        equipment budget.</p>
+        <div class="how">
+          <h4>The research step</h4>
+          <p>This is the sprint method at small scale. The first part of the week went to
+          understanding someone else's system well enough to rebuild its architecture, not its
+          parts: a person's movement is captured, turned into joint targets, and sent to a machine
+          that follows. Once the loop is clear, every component can be the cheapest one that
+          closes it.</p>
+          <h4>How I did it</h4>
+          <ol class="steps">
+            <li><b>Pose from one camera.</b> MediaPipe Pose tracks shoulder, elbow and wrist
+            landmarks from a single camera feed.</li>
+            <li><b>Geometry, not a model, for the angles.</b> I compute shoulder vertical, shoulder
+            horizontal and elbow flex with arctan2 on the landmark positions and map each to a servo
+            position. It is exact, fast and needs no training data.</li>
+            <li><b>A hand as a switch.</b> MediaPipe Hands detects a closed fist and drives the
+            gripper, so grabbing is the same gesture for the person and the robot.</li>
+            <li><b>A protocol small enough to parse anywhere.</b> Commands stream as index, angle,
+            terminator, parsed by an Arduino or an ESP32. The arm is hardware-agnostic by design, so
+            the controller can change without touching the vision side.</li>
+            <li><b>Two modes, one toggle.</b> A Tkinter interface with per-joint sliders for manual
+            calibration, and an AI mode with full real-time body tracking. Calibrating by hand first
+            is what makes the tracked mode trustworthy.</li>
+          </ol>
+        </div>
         <p class="repo"><a href="https://github.com/Shivenderthakur/KINEMLINK_RELEASE" rel="noopener" target="_blank">KINEMLINK_RELEASE</a></p>
 
         <figure class="evidence">
@@ -416,14 +545,35 @@
       <div class="body">
         <h3>Servo control across two planes</h3>
         <p>An arm that moves through the XY and XZ planes with interpolation I wrote myself,
-        driven wirelessly from a laptop over Bluetooth. It started on an Arduino Mega, hit that
-        board's wireless ceiling, and I migrated the whole codebase to ESP32 rather than stall
-        the build. No motion library did what was needed, so the angle-to-duty-cycle conversion
-        is calculated by hand and the step-based interpolation is mine. PWM at 50 Hz, steady
-        enough to run in front of people.</p>
-        <p>Shown three times: PROMETEO 2025 at IIT Jodhpur, where a professor recommended
-        advancing the work; Taabar Mela in Jodhpur, in operation before an open public audience;
-        and an MBM University faculty workshop on intelligent embedded systems.</p>
+        driven wirelessly from a laptop over Bluetooth, and reliable enough to run in front of
+        the public three times.</p>
+        <div class="how">
+          <h4>The platform decision</h4>
+          <p>The build started on an Arduino Mega and hit that board's wireless ceiling. The
+          choice was to work around the limit or change the platform. I migrated the entire
+          codebase to an ESP32 and kept the build moving. Changing boards mid-project is expensive,
+          but living with a ceiling you already know about is more expensive, because every later
+          feature pays for it.</p>
+          <h4>How I did it</h4>
+          <ol class="steps">
+            <li><b>Wrote the maths the library did not have.</b> No motion library did what was
+            needed, so the angle-to-duty-cycle conversion is calculated by hand from the servo's
+            pulse range, with PWM at 50 Hz.</li>
+            <li><b>Made motion smooth.</b> Step-based interpolation, so the arm moves through
+            intermediate positions instead of jumping between targets. Jerky motion is not only
+            ugly, it loads the joints and shakes the payload.</li>
+            <li><b>Coordinated the joints.</b> Several servos driven together so a move across XY
+            or XZ is one motion rather than a sequence of single-joint moves.</li>
+            <li><b>Tested where it would be used.</b> Wireless control from a laptop over
+            Bluetooth, demonstrated live rather than on a bench.</li>
+          </ol>
+          <h4>Where it ran</h4>
+          <p>PROMETEO 2025 at IIT Jodhpur, where a professor recommended advancing the work;
+          Taabar Mela in Jodhpur, in operation before an open public audience; and an MBM
+          University faculty workshop on intelligent embedded systems. The arm on the workbench
+          in this site solves the same problem the other way round: instead of joint angles in,
+          a target point in space, and the angles worked out with two-link inverse kinematics.</p>
+        </div>
         <p class="repo"><a href="https://github.com/Shivenderthakur/SAC-SmartArmController" rel="noopener" target="_blank">SAC-SmartArmController</a></p>
 
         <figure class="evidence">
@@ -461,6 +611,19 @@
         <p>A curriculum built from scratch under the RoboAI Hub initiative: Python fundamentals,
         core AI, computer vision and the mathematics underneath the models. Sixty-eight students
         took part across the five days. I co-trained it with a colleague, Neha.</p>
+        <div class="how">
+          <h4>What made it hard</h4>
+          <p>There was no existing course to adapt, five days is short, and school students
+          arrive with very different starting points. Teaching AI as a list of tools would have
+          left them able to repeat names and unable to explain anything.</p>
+          <h4>How it was built</h4>
+          <p>The subjects were chosen so that each one gives the next something to stand on:
+          Python first, so the rest can be done rather than watched; core AI ideas next; computer
+          vision as the part students can see working on a camera; and the mathematics underneath
+          the models, so what they saw has an explanation. It is the same instinct as the
+          research sprints, applied to people instead of a prototype: find what the rest depends
+          on and put it first.</p>
+        </div>
 
         <figure class="evidence">
           <figcaption>Navjyoti, Mount Abu edition, January 2025</figcaption>
@@ -663,10 +826,15 @@
   </div>
 </main>
 
-<dialog class="viewer" id="viewer">
+<dialog class="viewer" id="viewer" aria-label="Picture viewer">
   <form method="dialog"><button class="viewer__close" aria-label="Close">&times;</button></form>
-  <img id="viewer-img" alt="">
-  <p id="viewer-cap"></p>
+  <div class="viewer__stage" id="viewer-stage">
+    <button type="button" class="viewer__nav viewer__nav--prev" id="viewer-prev" aria-label="Previous picture">&larr;</button>
+    <img id="viewer-img" alt="" draggable="false">
+    <button type="button" class="viewer__nav viewer__nav--next" id="viewer-next" aria-label="Next picture">&rarr;</button>
+  </div>
+  <p class="viewer__meta"><span id="viewer-count"></span><span id="viewer-cap"></span></p>
+  <div class="viewer__thumbs" id="viewer-thumbs"></div>
 </dialog>
 
 <footer>

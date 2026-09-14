@@ -1,21 +1,59 @@
 # Portfolio — Shivender Singh Thakur
 
-**Version 4.** The portfolio is a floating island you explore. Drag to look around, click a
-landmark to fly to it, and its part of the page opens beside it. Version 3 was a scrolling
-page with a workshop behind it.
+**Version 6.** The portfolio is a floating island you explore. Drag to look around, click a
+landmark to fly to it, and its part of the page opens beside it.
+
+Version 6 adds: an arm you can re-specify live (base height, upper arm, forearm, claw) with
+its reach, floor area and working volume computed and drawn as a dome; free 3D dragging of
+the block, into mid-air; a matte finish throughout the bench; a desktop tower beside the arm;
+a hall of fame for the certificates; a swipeable gallery viewer for every picture on the
+site; a hardware shelf of real boards and sensors converted from CAD; and longer write-ups
+that explain how each piece of work was done.
 
 ```
 index.html          every word on the site, as ordinary HTML: an intro card and one panel per place
 css/styles.css      type, colour, the panels, and a stacked-page fallback without WebGL
 js/world.js         renderer, orbit camera, flying between places, panels, the scan viewer
 js/island.js        terrain and the eight landmarks, with real scans framed on their walls
-js/bench.js         the arm at the centre: inverse kinematics, claw, pick and place, the monitor
+js/bench.js         the arm at the centre: parametric geometry, inverse kinematics, reach dome,
+                    pick and place, the computer and its monitor
 js/stations.js      the smaller rigs the landmarks stand up
 js/icons.js         skills as hand-built 3D objects with physical materials
 js/realism.js       HDRI lighting, scanned PBR surfaces, photoreal props, the post-processing stack
 assets/             portrait, press clippings, event photos, certificates, bench photos, link card,
                     models/ (GLB), tex/ (PBR sets), hdri/ (lighting)
+tools/models/       the OBJ to GLB converter that produced assets/models/{boards,sensors,robotics}
 ```
+
+## Hardware models
+
+The boards, sensors and the robotic arm come from OBJ archives kept outside the repository in
+`3d models/` (1.9 GB, gitignored), extracted one folder per model into `data/raw/`.
+`tools/models/convert.mjs` turns each folder into one compressed GLB and records it in
+`assets/models/catalog.json`:
+
+- a streaming OBJ parser, so a 3-million-triangle export does not need its text in memory;
+- each part classified from its geometry into a matte material (board, pins, metal, plastic,
+  dome), with the source's sRGB colours converted to linear;
+- parts flattened and joined, vertices welded, then meshoptimizer simplification to a
+  per-category triangle budget, widening the error bound step by step when many small closed
+  parts refuse to collapse;
+- normals regenerated, then `EXT_meshopt_compression` with quantised attributes.
+
+```bash
+cd tools/models && npm install
+node convert.mjs ../../data/raw ../../assets/models              # everything
+node convert.mjs ../../data/raw ../../assets/models arduino-uno  # one model
+```
+
+| Category | Models |
+| --- | --- |
+| boards | Arduino Mega 2560, Arduino Nano Every, Arduino Uno, ESP32 NodeMCU, Raspberry Pi 4B, Raspberry Pi 5, Raspberry Pi Zero |
+| sensors | HC-SR04 ultrasonic, PIR motion, IR, DHT11, IMU, MQ-135, MQ-2, LDR, rain, touch |
+| robotics | robotic arm |
+
+The lab shelf loads the lighter, cleaner ones (Uno, Pi 5, Pi 4B, Nano Every and seven
+sensors) and the arm on a turntable; phones load two. The rest are catalogued for later use.
 
 ## Realism
 
@@ -27,8 +65,9 @@ assets/             portrait, press clippings, event photos, certificates, bench
 - **Tech props** are photoreal scans: a circuit board, a vintage laptop, an arm desk lamp, a
   metal toolbox, an industrial microscope and a television. Each is compressed to a meshopt
   GLB with WebP textures and fitted from its own measured bounds when it loads.
-- **Hand-built parts**, the robotic arm and the skill icons, use physical materials:
-  anodised metal, clearcoated solder mask, glossy plastic and glass.
+- **The workbench is matte**: the arm is powder-coat and anodised finishes with no clearcoat,
+  and so are the tower, monitor, keyboard and props beside it. The skill icons keep physical
+  materials.
 - **Post-processing** adds ground-truth ambient occlusion, a bloom with a high threshold so
   only screens, LEDs and the beacon glow, and SMAA edges. Phones skip the occlusion and SMAA.
 
@@ -74,18 +113,19 @@ Eight places, each a landmark facing the centre of the island:
 | The workbench, with the arm | About |
 | Research tower, with the sprint dials | Research practice |
 | Bheenmal stage, four newspaper clippings on its backdrop | Work, from the humanoid |
-| Robotics lab, three rigs on tables | Work, from the attendance system |
-| Credentials hall, eleven certificates on its wall | Experience and certification |
+| Robotics lab, three rigs on tables, a shelf of real boards and sensors, the arm on a turntable | Work, from the attendance system |
+| Hall of fame, eleven certificates in brass frames with lamps and engraved plates | Experience and certification |
 | Skills ring, twelve floating 3D icons | Skills |
 | Toolchain shed, a bench vignette and photos of the real bench | Where I work |
 | Radio mast | Contact |
 
 Every place is also in the header, and every panel has a URL (`#research`, `#work-robonari`
 and so on), so a link can open straight into a place. Arrow keys step between places and
-Escape returns to the island. Any framed scan, in the world or in a panel, opens full size.
+Escape returns to the island.
 
-At the workbench the arm is live: click the bench to send the block somewhere, or drag it, and
-the arm fetches it back to the pedestal. The pick-and-place details below still apply.
+Any picture, framed in the world or in a panel, opens in one gallery viewer holding the rest of
+its wall or evidence strip. Swipe, use the arrow keys or the side buttons, or pick from the
+thumbnail strip; a click on the backdrop closes it.
 
 The skill icons are built from primitives: a board, a chip, a lens, a neural knot, a
 terminal, a globe, a shield, gears, an arm joint, a cloud and an antenna. Vendor logos are
@@ -95,15 +135,32 @@ Without WebGL the island is skipped and the same HTML reads as an ordinary page.
 
 ## The arm
 
-- **Drag the block** anywhere on the bench, or click the bench to send it there.
-- **Drag the amber ring** above it to lift it into the air, or tap the ring on a touch
-  screen, where a vertical drag scrolls the page instead. A dashed line to the bench shows
-  how high it is, and the block stays exactly where you leave it.
-- **Let go** and the arm comes for it, in mid air if that is where it is: approach, descend,
+- **Drag the block** and it moves in the plane facing the camera: up, down and sideways,
+  into open air. Drag empty space to walk round the arm and look over it; the drag plane turns
+  with the view, so any point inside the working dome can be reached.
+- **Drag the amber ring** above it to slide it across the desk at the height it already has,
+  or tap the ring to lift or lower it. A dashed line to the desk shows how high it is, the HGT
+  readout gives the height in centimetres, and the block stays exactly where you leave it.
+- **Click the desk** to send the block there.
+- **Let go** and the arm comes for it, in mid-air if that is where it is: approach, descend,
   close the claw, lift, carry it across the bench, set it down on the pedestal, then clear
   away and return to rest.
-- **On a touch screen**, tap "Take control" first. Until then the hero lets a vertical swipe
-  scroll the page rather than swallowing it.
+
+### Tuning the arm
+
+The "Tune the arm" panel sets four numbers: base height, upper arm, forearm and claw, in
+centimetres (one scene unit is 10 cm). Changing any of them rebuilds the arm's geometry and
+recomputes, from the same numbers:
+
+- **Reach**, the furthest the claw can touch on the desk, and **top**, its highest point;
+- **Floor area**, the annulus of the desk the claw can reach, π(R² − r²);
+- **Working volume**, the volume swept by the reachable profile turned about the base,
+  by Pappus's theorem on the profile polygon.
+
+The same profile is drawn as a translucent dome with meridians and parallels, brightening
+while you drag or retune. The pedestal moves to a point the new arm can comfortably reach,
+and the rest and carry poses scale with it, so a short arm is never asked for a pose only a
+long one can hold.
 
 The turret yaw comes from the target's bearing and interpolates the short way round, so the
 arm travels through a full circle without unwinding. Shoulder and elbow angles come from a
@@ -118,8 +175,10 @@ in the arm's own plane. Both the block and every goal the sequence sets are push
 envelope before use, so the arm never chases a point it cannot touch and no step has to wait
 out a timeout.
 
-The monitor beside the arm is a terminal drawn frame by frame onto a canvas texture, showing
-the same joint angles and state as the readout in the corner of the page.
+Beside the arm is the computer it is programmed from: a mid-tower with a side window and
+turning fans, cabled to the arm's base, and a monitor whose terminal is drawn frame by frame
+onto a canvas texture with the link lengths, reach, volume, joint angles, target position and
+state.
 
 ## The rigs
 

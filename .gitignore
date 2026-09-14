@@ -7,3 +7,6 @@ node_modules/
 
 # The LinkedIn export is source material, not something to publish.
 data/
+
+# Raw CAD/OBJ archives. The converted, compressed GLBs live in assets/models/.
+3d models/

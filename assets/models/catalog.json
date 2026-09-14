@@ -1,0 +1,293 @@
+{
+  "models": [
+    {
+      "id": "arduino-mega-2560",
+      "name": "Arduino Mega 2560 Rev3",
+      "category": "boards",
+      "file": "assets/models/boards/arduino-mega-2560.glb",
+      "parts": 33,
+      "sourceTriangles": 1894552,
+      "triangles": 139920,
+      "bytes": 2287072,
+      "upAxis": "y",
+      "size": [
+        53.3703,
+        15.2,
+        108.0202
+      ]
+    },
+    {
+      "id": "arduino-nano-every",
+      "name": "Arduino Nano Every",
+      "category": "boards",
+      "file": "assets/models/boards/arduino-nano-every.glb",
+      "parts": 13,
+      "sourceTriangles": 461428,
+      "triangles": 142497,
+      "bytes": 2054532,
+      "upAxis": "z",
+      "size": [
+        4404.7343,
+        1778.6508,
+        352.7889
+      ]
+    },
+    {
+      "id": "arduino-uno",
+      "name": "Arduino Uno",
+      "category": "boards",
+      "file": "assets/models/boards/arduino-uno.glb",
+      "parts": 5,
+      "sourceTriangles": 132326,
+      "triangles": 132326,
+      "bytes": 1919500,
+      "upAxis": "y",
+      "size": [
+        1.4203,
+        0.41,
+        2.0154
+      ]
+    },
+    {
+      "id": "esp32-nodemcu",
+      "name": "NodeMCU ESP32",
+      "category": "boards",
+      "file": "assets/models/boards/esp32-nodemcu.glb",
+      "parts": 780,
+      "sourceTriangles": 3108690,
+      "triangles": 553926,
+      "bytes": 7626056,
+      "upAxis": "y",
+      "size": [
+        4.9047,
+        1.3,
+        2.54
+      ]
+    },
+    {
+      "id": "raspberry-pi-4b",
+      "name": "Raspberry Pi 4 Model B",
+      "category": "boards",
+      "file": "assets/models/boards/raspberry-pi-4b.glb",
+      "parts": 34,
+      "sourceTriangles": 1291398,
+      "triangles": 139956,
+      "bytes": 2782028,
+      "upAxis": "y",
+      "size": [
+        92.63,
+        29.68,
+        58.4872
+      ]
+    },
+    {
+      "id": "raspberry-pi-5",
+      "name": "Raspberry Pi 5",
+      "category": "boards",
+      "file": "assets/models/boards/raspberry-pi-5.glb",
+      "parts": 38,
+      "sourceTriangles": 2514712,
+      "triangles": 139935,
+      "bytes": 2572352,
+      "upAxis": "z",
+      "size": [
+        92.1049,
+        57.5223,
+        20.0247
+      ]
+    },
+    {
+      "id": "raspberry-pi-zero",
+      "name": "Raspberry Pi Zero",
+      "category": "boards",
+      "file": "assets/models/boards/raspberry-pi-zero.glb",
+      "parts": 162,
+      "sourceTriangles": 808434,
+      "triangles": 120544,
+      "bytes": 2180704,
+      "upAxis": "y",
+      "size": [
+        1.3977,
+        0.1633,
+        0.658
+      ]
+    },
+    {
+      "id": "robotic-arm",
+      "name": "Robotic arm",
+      "category": "robotics",
+      "file": "assets/models/robotics/robotic-arm.glb",
+      "parts": 13,
+      "sourceTriangles": 533026,
+      "triangles": 89995,
+      "bytes": 1013340,
+      "upAxis": "x",
+      "size": [
+        8.9116,
+        15.7814,
+        17.8764
+      ]
+    },
+    {
+      "id": "imu-accelerometer-gyroscope",
+      "name": "3-axis accelerometer and gyroscope",
+      "category": "sensors",
+      "file": "assets/models/sensors/imu-accelerometer-gyroscope.glb",
+      "parts": 1,
+      "sourceTriangles": 35829,
+      "triangles": 35829,
+      "bytes": 596064,
+      "upAxis": "z",
+      "size": [
+        3.2882,
+        2.2037,
+        0.1226
+      ]
+    },
+    {
+      "id": "touch-sensor",
+      "name": "Capacitive touch sensor",
+      "category": "sensors",
+      "file": "assets/models/sensors/touch-sensor.glb",
+      "parts": 13,
+      "sourceTriangles": 57512,
+      "triangles": 37877,
+      "bytes": 584600,
+      "upAxis": "y",
+      "size": [
+        9.6147,
+        5.1222,
+        9.672
+      ]
+    },
+    {
+      "id": "dht11-temperature-humidity",
+      "name": "DHT11 temperature and humidity",
+      "category": "sensors",
+      "file": "assets/models/sensors/dht11-temperature-humidity.glb",
+      "parts": 3,
+      "sourceTriangles": 3595,
+      "triangles": 3595,
+      "bytes": 44376,
+      "upAxis": "z",
+      "size": [
+        1.29,
+        2.6001,
+        0.6
+      ]
+    },
+    {
+      "id": "ir-sensor",
+      "name": "Infrared sensor",
+      "category": "sensors",
+      "file": "assets/models/sensors/ir-sensor.glb",
+      "parts": 9,
+      "sourceTriangles": 285885,
+      "triangles": 44898,
+      "bytes": 901040,
+      "upAxis": "y",
+      "size": [
+        1.2815,
+        0.6486,
+        3.9808
+      ]
+    },
+    {
+      "id": "ldr-light-sensor",
+      "name": "LDR light sensor module",
+      "category": "sensors",
+      "file": "assets/models/sensors/ldr-light-sensor.glb",
+      "parts": 416,
+      "sourceTriangles": 2264730,
+      "triangles": 117921,
+      "bytes": 2020700,
+      "upAxis": "y",
+      "size": [
+        0.0146,
+        0.0075,
+        0.0389
+      ]
+    },
+    {
+      "id": "mq135-air-quality",
+      "name": "MQ-135 air quality sensor",
+      "category": "sensors",
+      "file": "assets/models/sensors/mq135-air-quality.glb",
+      "parts": 12,
+      "sourceTriangles": 21809,
+      "triangles": 21809,
+      "bytes": 396244,
+      "upAxis": "z",
+      "size": [
+        3.7928,
+        2.3296,
+        2.1257
+      ]
+    },
+    {
+      "id": "mq2-gas-smoke",
+      "name": "MQ-2 gas and smoke sensor",
+      "category": "sensors",
+      "file": "assets/models/sensors/mq2-gas-smoke.glb",
+      "parts": 1,
+      "sourceTriangles": 29231,
+      "triangles": 29231,
+      "bytes": 473680,
+      "upAxis": "x",
+      "size": [
+        0.02,
+        0.02,
+        0.0355
+      ]
+    },
+    {
+      "id": "pir-motion",
+      "name": "PIR motion sensor",
+      "category": "sensors",
+      "file": "assets/models/sensors/pir-motion.glb",
+      "parts": 2,
+      "sourceTriangles": 30323,
+      "triangles": 30323,
+      "bytes": 389920,
+      "upAxis": "y",
+      "size": [
+        32.6,
+        24.08,
+        25.29
+      ]
+    },
+    {
+      "id": "rain-sensor",
+      "name": "Rain sensor",
+      "category": "sensors",
+      "file": "assets/models/sensors/rain-sensor.glb",
+      "parts": 390,
+      "sourceTriangles": 3156036,
+      "triangles": 127688,
+      "bytes": 1675728,
+      "upAxis": "y",
+      "size": [
+        0.0552,
+        0.0083,
+        0.1047
+      ]
+    },
+    {
+      "id": "hc-sr04-ultrasonic",
+      "name": "Ultrasonic distance sensor",
+      "category": "sensors",
+      "file": "assets/models/sensors/hc-sr04-ultrasonic.glb",
+      "parts": 6,
+      "sourceTriangles": 192749,
+      "triangles": 52599,
+      "bytes": 909416,
+      "upAxis": "z",
+      "size": [
+        9.0587,
+        5.201,
+        2.6471
+      ]
+    }
+  ],
+  "source": "Converted from the OBJ archives in '3d models/' by data/tools/convert.mjs"
+}
