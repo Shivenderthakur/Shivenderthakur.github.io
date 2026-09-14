@@ -7,20 +7,46 @@ import * as THREE from "three";
 
 const AMBER = 0xf0a31e;
 
+/* Physical materials: clearcoated solder mask, anodised metal, glossy plastic,
+   real glass, so the icons pick up the workshop HDRI like manufactured parts. */
+function pcbTexture() {
+  const c = document.createElement("canvas");
+  c.width = c.height = 512;
+  const x = c.getContext("2d");
+  x.fillStyle = "#1f5c47"; x.fillRect(0, 0, 512, 512);
+  x.strokeStyle = "rgba(150, 210, 170, 0.35)"; x.lineWidth = 3;
+  for (let i = 0; i < 46; i++) {
+    let px = Math.random() * 512, py = Math.random() * 512;
+    x.beginPath(); x.moveTo(px, py);
+    for (let k = 0; k < 4; k++) {
+      Math.random() < 0.5 ? (px += (Math.random() - 0.5) * 180) : (py += (Math.random() - 0.5) * 180);
+      x.lineTo(px, py);
+    }
+    x.stroke();
+    x.fillStyle = "rgba(210, 180, 110, 0.9)"; x.beginPath(); x.arc(px, py, 5, 0, Math.PI * 2); x.fill();
+  }
+  x.fillStyle = "rgba(235, 240, 235, 0.8)"; x.font = "bold 22px monospace";
+  x.fillText("U1", 60, 90); x.fillText("GPIO", 360, 470); x.fillText("C12", 420, 120);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
 const mat = {
-  amber: new THREE.MeshStandardMaterial({ color: AMBER, emissive: 0x4a2f06, roughness: 0.4, metalness: 0.3 }),
-  steel: new THREE.MeshStandardMaterial({ color: 0xb8c3bb, roughness: 0.32, metalness: 0.75 }),
-  dark: new THREE.MeshStandardMaterial({ color: 0x24312d, roughness: 0.5, metalness: 0.4 }),
-  pcb: new THREE.MeshStandardMaterial({ color: 0x2c6a55, roughness: 0.6, metalness: 0.2 }),
-  gold: new THREE.MeshStandardMaterial({ color: 0xcfae62, roughness: 0.3, metalness: 0.9 }),
-  glass: new THREE.MeshStandardMaterial({ color: 0x0b1614, roughness: 0.08, metalness: 0.9 }),
-  pale: new THREE.MeshStandardMaterial({ color: 0xdfe6df, roughness: 0.55, metalness: 0.1 }),
+  amber: new THREE.MeshPhysicalMaterial({ color: AMBER, emissive: 0x3a2404, roughness: 0.32, metalness: 0.2, clearcoat: 0.7, clearcoatRoughness: 0.15 }),
+  steel: new THREE.MeshPhysicalMaterial({ color: 0xc9d1cc, roughness: 0.24, metalness: 1, clearcoat: 0.25, clearcoatRoughness: 0.2 }),
+  dark: new THREE.MeshPhysicalMaterial({ color: 0x1b2421, roughness: 0.38, metalness: 0.15, clearcoat: 0.8, clearcoatRoughness: 0.12 }),
+  pcb: new THREE.MeshPhysicalMaterial({ map: pcbTexture(), roughness: 0.4, metalness: 0.05, clearcoat: 0.9, clearcoatRoughness: 0.18 }),
+  gold: new THREE.MeshPhysicalMaterial({ color: 0xe2bf6c, roughness: 0.18, metalness: 1 }),
+  glass: new THREE.MeshPhysicalMaterial({ color: 0x06120f, roughness: 0.03, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, ior: 1.52, reflectivity: 0.6 }),
+  pale: new THREE.MeshPhysicalMaterial({ color: 0xe6ece7, roughness: 0.42, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.2, sheen: 0.3 }),
   glow: new THREE.MeshBasicMaterial({ color: AMBER })
 };
 
 const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
-const cyl = (rt, rb, h, m, s = 28) => new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, s), m);
-const ball = (r, m) => new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), m);
+const cyl = (rt, rb, h, m, s = 48) => new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, s), m);
+const ball = (r, m) => new THREE.Mesh(new THREE.SphereGeometry(r, 32, 24), m);
 
 function board() {
   const g = new THREE.Group();

@@ -121,8 +121,8 @@ export function hub(r, w, body, ring) {
 }
 
 function buildArm() {
-  const steel = new THREE.MeshStandardMaterial({ color: STEEL, roughness: 0.34, metalness: 0.85 });
-  const dark = new THREE.MeshStandardMaterial({ color: DARK, roughness: 0.42, metalness: 0.7 });
+  const steel = new THREE.MeshPhysicalMaterial({ color: 0xc3ccc6, roughness: 0.26, metalness: 1, clearcoat: 0.35, clearcoatRoughness: 0.18 });
+  const dark = new THREE.MeshPhysicalMaterial({ color: 0x26312d, roughness: 0.34, metalness: 0.55, clearcoat: 0.7, clearcoatRoughness: 0.14 });
   const pad = new THREE.MeshStandardMaterial({ color: 0x14201d, roughness: 0.95, metalness: 0 });
   const glow = new THREE.MeshBasicMaterial({ color: AMBER });
 
@@ -320,7 +320,7 @@ function buildPayload() {
 let screen = null;
 
 function buildDesk() {
-  const shell = new THREE.MeshStandardMaterial({ color: 0x1d2825, roughness: 0.52, metalness: 0.35 });
+  const shell = new THREE.MeshPhysicalMaterial({ color: 0x1a2220, roughness: 0.4, metalness: 0.2, clearcoat: 0.6, clearcoatRoughness: 0.2 });
 
   buildMonitor(shell);
   buildKeyboard(shell);

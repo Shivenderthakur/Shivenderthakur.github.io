@@ -11,9 +11,37 @@ js/world.js         renderer, orbit camera, flying between places, panels, the s
 js/island.js        terrain and the eight landmarks, with real scans framed on their walls
 js/bench.js         the arm at the centre: inverse kinematics, claw, pick and place, the monitor
 js/stations.js      the smaller rigs the landmarks stand up
-js/icons.js         skills as hand-built 3D objects
-assets/             portrait, press clippings, event photos, certificates, bench photos, link card
+js/icons.js         skills as hand-built 3D objects with physical materials
+js/realism.js       HDRI lighting, scanned PBR surfaces, photoreal props, the post-processing stack
+assets/             portrait, press clippings, event photos, certificates, bench photos, link card,
+                    models/ (GLB), tex/ (PBR sets), hdri/ (lighting)
 ```
+
+## Realism
+
+- **Lighting** comes from a photographed workshop HDRI, so metal, glass and clearcoat reflect a
+  real room rather than a flat colour.
+- **Surfaces** are scanned PBR sets with colour, normal and roughness maps: forest ground on
+  the island, rock on the cliffs and paths, worn table wood on the benches, metal plate on the
+  buildings.
+- **Tech props** are photoreal scans: a circuit board, a vintage laptop, an arm desk lamp, a
+  metal toolbox, an industrial microscope and a television. Each is compressed to a meshopt
+  GLB with WebP textures and fitted from its own measured bounds when it loads.
+- **Hand-built parts**, the robotic arm and the skill icons, use physical materials:
+  anodised metal, clearcoated solder mask, glossy plastic and glass.
+- **Post-processing** adds ground-truth ambient occlusion, a bloom with a high threshold so
+  only screens, LEDs and the beacon glow, and SMAA edges. Phones skip the occlusion and SMAA.
+
+The whole realistic asset set is about 6 MB: 2.6 MB of models, 1.9 MB of textures and
+1.8 MB of HDRI.
+
+### Credits
+
+HDRI, textures and 3D models are from [Poly Haven](https://polyhaven.com), released under
+CC0. Attribution is not required, but credit is given here anyway:
+`aircraft_workshop_01` (HDRI); `forest_ground_04`, `rocky_terrain_02`, `wood_table_worn`,
+`metal_plate` (textures); `circuit_board`, `classic_laptop`, `desk_lamp_arm_01`,
+`metal_toolbox`, `industrial_microscope`, `Television_01` (models).
 
 ## Run it locally
 

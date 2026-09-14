@@ -7,17 +7,18 @@ import * as THREE from "three";
 import { roundedBox } from "./bench.js";
 import { RIGS } from "./stations.js";
 import { makeSkillRing } from "./icons.js";
+import { pbr, loadProp } from "./realism.js";
 
 export const GROUND = -1.4;
 const AMBER = 0xf0a31e;
 
 const M = {
-  grass: new THREE.MeshStandardMaterial({ color: 0x1d3a30, roughness: 0.95, flatShading: true }),
-  rock: new THREE.MeshStandardMaterial({ color: 0x2a2f2c, roughness: 1, flatShading: true }),
-  path: new THREE.MeshStandardMaterial({ color: 0x5a5140, roughness: 0.9 }),
-  wood: new THREE.MeshStandardMaterial({ color: 0x3a3831, roughness: 0.8 }),
-  wall: new THREE.MeshStandardMaterial({ color: 0x1b2724, roughness: 0.85, metalness: 0.1 }),
-  trim: new THREE.MeshStandardMaterial({ color: 0x33443f, roughness: 0.5, metalness: 0.5 }),
+  grass: pbr("forest_ground_04", { repeat: [9, 9], color: 0x9aa89a, normalScale: 1.2 }),
+  rock: pbr("rocky_terrain_02", { repeat: [7, 3], color: 0x8a8f8a, normalScale: 1.5 }),
+  path: pbr("rocky_terrain_02", { repeat: [1, 12], color: 0xb8ab90 }),
+  wood: pbr("wood_table_worn", { repeat: [0.35, 0.35], color: 0xc9b9a0 }),
+  wall: pbr("metal_plate", { repeat: [3, 2], color: 0x5f6f69, metalness: 0.6, roughness: 1 }),
+  trim: pbr("metal_plate", { repeat: [2, 2], color: 0x7d8a84, metalness: 0.8, roughness: 1 }),
   steel: new THREE.MeshStandardMaterial({ color: 0x9aa6a0, roughness: 0.4, metalness: 0.7 }),
   roof: new THREE.MeshStandardMaterial({ color: 0x2b3a35, roughness: 0.7, flatShading: true }),
   cloth: new THREE.MeshStandardMaterial({ color: 0xb8372a, roughness: 0.8 }),
@@ -77,18 +78,37 @@ function terrain(scene) {
 }
 
 function trees(scene, avoid) {
-  const cone = new THREE.MeshStandardMaterial({ color: 0x25493b, roughness: 0.9, flatShading: true });
+  const needles = new THREE.MeshStandardMaterial({ color: 0x1f3d2c, roughness: 0.92, metalness: 0 });
+  const bark = pbr("wood_table_worn", { repeat: [0.4, 1.4], color: 0x6b5a48 });
   for (let i = 0; i < 70; i++) {
     const a = Math.random() * Math.PI * 2, d = 6 + Math.random() * 16.5;
     const x = Math.cos(a) * d, z = Math.sin(a) * d;
     if (avoid.some(([ax, az, ar]) => Math.hypot(x - ax, z - az) < ar)) continue;
+    /* distance from the tree to the line between the island centre and each landmark */
+    const inPath = avoid.some(([ax, az]) => {
+      const len2 = ax * ax + az * az;
+      if (len2 < 1) return false;
+      const k = Math.max(0, Math.min(1, (x * ax + z * az) / len2));
+      return Math.hypot(x - ax * k, z - az * k) < 3.2;
+    });
+    if (inPath) continue;
     const t = new THREE.Group();
-    const h = 1.4 + Math.random() * 1.6;
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 0.5, 6), M.wood);
-    trunk.position.y = 0.25;
-    const top = new THREE.Mesh(new THREE.ConeGeometry(0.55 + Math.random() * 0.3, h, 7), cone);
-    top.position.y = 0.5 + h / 2;
-    t.add(trunk, top);
+    const h = 2.2 + Math.random() * 2.2;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.16, h * 0.55, 10), bark);
+    trunk.position.y = h * 0.27;
+    t.add(trunk);
+    const tiers = 4 + Math.floor(Math.random() * 2);
+    for (let k = 0; k < tiers; k++) {
+      const f = 1 - k / tiers;
+      const r = (0.45 + Math.random() * 0.12) * (0.55 + f * 0.9);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(r, h * 0.34, 14, 1, true), needles);
+      cone.position.y = h * 0.3 + k * h * 0.17;
+      cone.rotation.y = Math.random() * Math.PI;
+      cone.rotation.z = (Math.random() - 0.5) * 0.08;
+      t.add(cone);
+    }
+    t.rotation.y = Math.random() * Math.PI;
+    t.scale.setScalar(0.85 + Math.random() * 0.35);
     t.position.set(x, GROUND, z);
     shadows(t);
     scene.add(t);
@@ -119,7 +139,7 @@ function frame(parent, { src, full, w, h, alt }, size, x, y, z, ry = 0, frames) 
   const tex = loader.load(src);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
-  const pic = new THREE.Mesh(new THREE.PlaneGeometry(fw, fh), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+  const pic = new THREE.Mesh(new THREE.PlaneGeometry(fw, fh), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55, metalness: 0, envMapIntensity: 0.4 }));
   pic.position.z = 0.035;
   pic.userData = { full, alt };
   g.add(pic);
@@ -167,7 +187,7 @@ function sign(text) {
   ctx.fillText(text, 256, 50);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 0.52), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, side: THREE.DoubleSide }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 0.52), new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.55, roughness: 0.6, side: THREE.DoubleSide }));
   return m;
 }
 
@@ -234,16 +254,44 @@ function stage(scene, reduceMotion, updaters, frames) {
 
   /* the humanoid, as a stand-in: the real one is in the photographs behind it */
   const bot = new THREE.Group();
-  const dress = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.7, 16), M.cloth);
-  dress.position.y = 0.85;
-  const chest = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.36, 0.6, 14), M.cloth);
-  chest.position.y = 1.9;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 18, 14), M.skin);
-  head.position.y = 2.45;
-  const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.8, 8), M.steel);
-  armL.position.set(-0.42, 2.25, 0); armL.rotation.z = 2.6;
-  const armR = armL.clone(); armR.position.x = 0.42; armR.rotation.z = -2.6;
-  bot.add(dress, chest, head, armL, armR);
+  const fabric = new THREE.MeshPhysicalMaterial({ color: 0xa8281f, roughness: 0.78, sheen: 1, sheenColor: 0xff8a6a, sheenRoughness: 0.5 });
+  const shell = new THREE.MeshPhysicalMaterial({ color: 0xd9dcd6, roughness: 0.3, metalness: 0.1, clearcoat: 0.8, clearcoatRoughness: 0.15 });
+  const joint = new THREE.MeshPhysicalMaterial({ color: 0x2a302d, roughness: 0.35, metalness: 0.8 });
+  const lathe = (pts, m, seg = 36) => new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg), m);
+  const dress = lathe([[0.05, 0], [0.62, 0.02], [0.5, 0.6], [0.34, 1.25], [0.26, 1.62], [0.0, 1.64]], fabric);
+  const chest = lathe([[0.0, 1.55], [0.3, 1.58], [0.36, 1.9], [0.27, 2.18], [0.1, 2.24], [0.0, 2.24]], fabric);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.16, 20), joint);
+  neck.position.y = 2.3;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 40, 30), shell);
+  head.scale.set(0.92, 1.08, 1);
+  head.position.y = 2.58;
+  const visor = new THREE.Mesh(new THREE.SphereGeometry(0.206, 40, 20, Math.PI / 2 - 1.05, 2.1, 1.2, 0.6),
+    new THREE.MeshPhysicalMaterial({ color: 0x07100e, roughness: 0.05, clearcoat: 1, metalness: 0.2 }));
+  visor.position.y = 2.58;
+  const eyes = [-0.07, 0.07].map((ex) => {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 12), new THREE.MeshBasicMaterial({ color: 0x9fe6ff }));
+    e.position.set(ex, 2.6, 0.2);
+    return e;
+  });
+  const limb = () => {
+    const g = new THREE.Group();
+    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.34, 8, 16), shell);
+    upper.position.y = -0.22;
+    const elbowJ = new THREE.Mesh(new THREE.SphereGeometry(0.07, 20, 14), joint);
+    elbowJ.position.y = -0.44;
+    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.052, 0.3, 8, 16), shell);
+    fore.position.y = -0.64;
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.07, 20, 14), joint);
+    hand.scale.set(0.8, 1.2, 0.6);
+    hand.position.y = -0.86;
+    g.add(upper, elbowJ, fore, hand);
+    return g;
+  };
+  const armL = limb(); armL.position.set(-0.38, 2.12, 0); armL.rotation.z = 2.6;
+  const armR = limb(); armR.position.set(0.38, 2.12, 0); armR.rotation.z = -2.6;
+  const shoulderL = new THREE.Mesh(new THREE.SphereGeometry(0.1, 20, 14), joint); shoulderL.position.set(-0.38, 2.12, 0);
+  const shoulderR = shoulderL.clone(); shoulderR.position.x = 0.38;
+  bot.add(dress, chest, neck, head, visor, ...eyes, armL, armR, shoulderL, shoulderR);
   bot.position.set(0, 0.8, 0.4);
   g.add(bot);
   updaters.push((dt, t) => {
@@ -455,6 +503,25 @@ export function buildIsland(scene, { reduceMotion }) {
   aboutMarker(scene, reduceMotion, updaters);
 
   const all = [research, press, builds, creds, skill, tools, contact];
+
+  const place = (group, name, size, x, y, z, ry = 0) =>
+    loadProp(name, size).then((prop) => {
+      if (!prop) return;
+      prop.position.set(x, y, z);
+      prop.rotation.y = ry;
+      group.add(prop);
+    });
+  place(tools.group, "desk_lamp_arm_01", 1.3, 1.45, 1.06, -0.75, -0.6);
+  place(tools.group, "classic_laptop", 0.85, -1.15, 1.06, 0.05, 0.25);
+  place(tools.group, "metal_toolbox", 1.0, -2.05, 0.2, 1.05, 0.3);
+  place(builds.group, "industrial_microscope", 0.95, -3.9, 1.06, -0.25, 0.4);
+  place(press.group, "Television_01", 1.2, 3.4, 0.8, 0.7, -0.35);
+  const board = new THREE.Group();
+  board.position.set(0, 0.3, 1.3);
+  creds.group.add(board);
+  board.add(plinth(0.7, 1.0));
+  place(board, "circuit_board", 1.1, 0, 1.02, 0, 0.3);
+  place(scene, "desk_lamp_arm_01", 1.6, 2.3, 0, -1.9, -2.3);
   all.forEach((l) => { const p = l.group.position; path(scene, p.x, p.z); });
 
   trees(scene, [[0, 0, 7], [-12, -10, 4.5], [11, -11, 7], [15, 3, 7.5], [1, 16, 8], [-15, 5, 6], [-9, -1.5, 4.5], [9, 12, 3.5], [4.3, -4.6, 2.5]]);
@@ -474,7 +541,8 @@ export function buildIsland(scene, { reduceMotion }) {
     { key: "lab", panel: "#work", anchor: "#work-attendance", label: "Robotics lab", focus: toWorld(builds), dist: builds.dist, lift: builds.lift, hits: builds.hits },
     { key: "hall", panel: "#experience", label: "Credentials hall", focus: toWorld(creds), dist: creds.dist, lift: creds.lift, hits: creds.hits },
     { key: "skills", panel: "#stack", label: "Skills", focus: toWorld(skill), dist: skill.dist, lift: skill.lift, hits: skill.hits },
-    { key: "shed", panel: "#toolchain", label: "Toolchain", focus: toWorld(tools), dist: tools.dist, lift: tools.lift, hits: tools.hits },
+    /* approach the shed at an angle: straight from the centre the camera passes the workbench monitor */
+    { key: "shed", panel: "#toolchain", label: "Toolchain", focus: toWorld(tools), dist: tools.dist, lift: tools.lift, hits: tools.hits, dir: new THREE.Vector3(0.58, 0, 0.81).normalize() },
     { key: "mast", panel: "#contact", label: "Say hello", focus: toWorld(contact), dist: contact.dist, lift: contact.lift, hits: contact.hits }
   ];
 

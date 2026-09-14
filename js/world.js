@@ -9,6 +9,7 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { createBench } from "./bench.js";
 import { buildIsland, GROUND } from "./island.js";
+import { loadEnvironment, makeComposer } from "./realism.js";
 
 const canvas = document.getElementById("world");
 const labelEl = document.getElementById("place-label");
@@ -21,7 +22,7 @@ const coarse = window.matchMedia("(pointer: coarse)").matches;
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const damp = (k, dt) => 1 - Math.exp(-k * dt);
 
-let renderer, scene, camera, bench, island, key;
+let renderer, scene, camera, bench, island, key, composer;
 
 /* ------------------------------------------------------------------- boot */
 
@@ -31,7 +32,7 @@ function boot() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
+  renderer.toneMappingExposure = 1.4;
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x070d0c);
@@ -41,6 +42,7 @@ function boot() {
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environmentIntensity = 0.22;
   pmrem.dispose();
+  loadEnvironment(renderer, scene);
 
   camera = new THREE.PerspectiveCamera(42, 1, 0.1, 400);
 
@@ -53,6 +55,8 @@ function boot() {
   } });
   island = buildIsland(scene, { reduceMotion });
 
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  try { composer = makeComposer(renderer, scene, camera, { coarse }); } catch (err) { console.warn(err); composer = null; }
   resize();
   window.addEventListener("resize", resize, { passive: true });
   bindPointer();
@@ -62,9 +66,9 @@ function boot() {
 }
 
 function lights() {
-  scene.add(new THREE.HemisphereLight(0x9fbcae, 0x0a1210, 0.55));
+  scene.add(new THREE.HemisphereLight(0xb8d0c4, 0x141c18, 0.9));
 
-  key = new THREE.DirectionalLight(0xfff0d8, 2.6);
+  key = new THREE.DirectionalLight(0xfff0d8, 3.4);
   key.position.set(22, 34, 18);
   key.castShadow = true;
   const size = coarse ? 1024 : 2048;
@@ -393,12 +397,13 @@ function frame(nowMs) {
   moveCamera(Math.min(raw, 0.25), t);
   bench.update(nowMs, dt);
   island.update(dt, t);
-  renderer.render(scene, camera);
+  if (composer) composer.render(); else renderer.render(scene, camera);
 }
 
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
+  if (composer) composer.setSize(w, h);
   camera.aspect = w / h;
   camera.fov = clamp(42 + (1.3 - w / h) * 14, 42, 62);
   camera.updateProjectionMatrix();
