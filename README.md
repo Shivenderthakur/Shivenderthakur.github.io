@@ -1,20 +1,18 @@
 # Portfolio — Shivender Singh Thakur
 
-**Version 3.** Repositioned around research practice, with press evidence, structured data
-and eight stations along the bench. Version 2 moved the whole page inside one 3D workshop;
-version 1 was a light editorial layout with the 3D boxed into panels.
-
-A single static page with a 3D workshop running behind the writing. No build step and
-nothing to install. Three.js is the only external library and it loads from a CDN.
+**Version 4.** The portfolio is a floating island you explore. Drag to look around, click a
+landmark to fly to it, and its part of the page opens beside it. Version 3 was a scrolling
+page with a workshop behind it.
 
 ```
-index.html          the whole page
-css/styles.css      type, colour and layout
-js/world.js         the scene, the room, and the camera path the page scrolls along
-js/bench.js         the arm: inverse kinematics, claw, pick and place, the monitor
-js/stations.js      the eight rigs standing along the bench
-js/site.js          marks the section you are reading in the masthead
-assets/             portrait
+index.html          every word on the site, as ordinary HTML: an intro card and one panel per place
+css/styles.css      type, colour, the panels, and a stacked-page fallback without WebGL
+js/world.js         renderer, orbit camera, flying between places, panels, the scan viewer
+js/island.js        terrain and the eight landmarks, with real scans framed on their walls
+js/bench.js         the arm at the centre: inverse kinematics, claw, pick and place, the monitor
+js/stations.js      the smaller rigs the landmarks stand up
+js/icons.js         skills as hand-built 3D objects
+assets/             portrait, press clippings, event photos, certificates, bench photos, link card
 ```
 
 ## Run it locally
@@ -39,19 +37,33 @@ git push
 
 `.nojekyll` is present, which stops GitHub running Jekyll over the folder.
 
-## The workshop
+## The island
 
-The canvas is fixed to the viewport and the page scrolls over it. Each section of the
-writing is anchored to a station on one long bench, and scrolling dollies the camera from
-one to the next: the arm, the serial link, the three project rigs, the boards, and finally
-a long shot down the whole bench. Each shot aims a little to the left of its subject so the
-rig lands in the right of the frame, clear of the text, and a gradient scrim keeps the
-writing legible over whatever is behind it.
+Eight places, each a landmark facing the centre of the island:
 
-Anchors are measured from the DOM and measured again once web fonts land and whenever the
-page height changes, because a late font shifts every one of them. The camera eases on real
-elapsed time rather than a capped frame delta, so a slow device keeps up with the scroll
-instead of trailing a station behind.
+| Landmark | Opens |
+| --- | --- |
+| The workbench, with the arm | About |
+| Research tower, with the sprint dials | Research practice |
+| Bheenmal stage, four newspaper clippings on its backdrop | Work, from the humanoid |
+| Robotics lab, three rigs on tables | Work, from the attendance system |
+| Credentials hall, eleven certificates on its wall | Experience and certification |
+| Skills ring, twelve floating 3D icons | Skills |
+| Toolchain shed, a bench vignette and photos of the real bench | Where I work |
+| Radio mast | Contact |
+
+Every place is also in the header, and every panel has a URL (`#research`, `#work-robonari`
+and so on), so a link can open straight into a place. Arrow keys step between places and
+Escape returns to the island. Any framed scan, in the world or in a panel, opens full size.
+
+At the workbench the arm is live: click the bench to send the block somewhere, or drag it, and
+the arm fetches it back to the pedestal. The pick-and-place details below still apply.
+
+The skill icons are built from primitives: a board, a chip, a lens, a neural knot, a
+terminal, a globe, a shield, gears, an arm joint, a cloud and an antenna. Vendor logos are
+deliberately not reproduced; their owners do not permit them to be redrawn or restyled.
+
+Without WebGL the island is skipped and the same HTML reads as an ordinary page.
 
 ## The arm
 

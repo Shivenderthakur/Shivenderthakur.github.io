@@ -871,3 +871,9 @@ function makeTerminal() {
 
   return { texture, draw };
 }
+
+/* The island world places each rig itself, so hand it the builders directly. */
+export const RIGS = {
+  uart: makeUart, sprint: makeSprint, face: makeFace, roster: makeRoster,
+  hand: makeHand, trace: makeTrace, boards: makeBoards, props: makeProps
+};

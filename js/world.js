@@ -1,387 +1,412 @@
-/* One workshop behind the whole page.
+/* The island you explore.
 
-   The canvas is fixed to the viewport and the page scrolls over it. Each section
-   of the writing is anchored to a station on the bench, and scrolling dollies the
-   camera from one to the next: the arm, the serial link, the three project rigs,
-   the boards, and finally a long shot down the whole bench. */
+   Drag to orbit, wheel or pinch to zoom, click a landmark to fly to it. Each
+   landmark opens the matching section of the page as a panel, so every word on
+   the site is still ordinary HTML. At the workbench the arm is live again: drag
+   the block and it carries it back to the pedestal. Framed scans open full size. */
 
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { createBench, AMBER } from "./bench.js";
-import { makeStations } from "./stations.js";
+import { createBench } from "./bench.js";
+import { buildIsland, GROUND } from "./island.js";
 
 const canvas = document.getElementById("world");
-const stage = document.getElementById("stage-catch");
-const grabButton = document.getElementById("world-grab");
-const hint = document.getElementById("world-hint");
+const labelEl = document.getElementById("place-label");
+const bar = document.getElementById("panel-bar");
+const viewer = document.getElementById("viewer");
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const coarse = window.matchMedia("(pointer: coarse)").matches;
 
-const BENCH_FROM = 5.2;
-const BENCH_TO = -62.5;
-const BENCH_Z = -0.15;
-const BENCH_D = 5.0;
-const FLOOR_Y = -2.55;
-
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
-const smooth = (t) => t * t * (3 - 2 * t);
+const damp = (k, dt) => 1 - Math.exp(-k * dt);
 
-let renderer, scene, camera, bench, stations;
+let renderer, scene, camera, bench, island, key;
 
-/* Where the camera sits for each anchored section. The target is set left of the
-   subject so the rig lands in the right half, clear of the writing. */
-const SHOTS = [
-  { sel: "#bench",           target: [-1.3, 0.86, 0.1], offset: [3.0, 1.5, 5.3] },
-  { sel: "#about",           target: [-9.7, 0.95, 0],   offset: [2.2, 1.0, 4.1] },
-  { sel: "#research",        target: [-16.9, 0.8, 0],   offset: [2.4, 1.1, 4.3] },
-  { sel: "#work-robonari",   target: [-24.1, 1.05, 0],  offset: [2.2, 0.9, 4.0] },
-  { sel: "#work-attendance", target: [-31.3, 1.0, 0],   offset: [2.2, 0.95, 4.2] },
-  { sel: "#work-kinelink",   target: [-38.5, 1.0, 0],   offset: [2.2, 0.9, 4.0] },
-  { sel: "#work-servo",      target: [-45.7, 1.15, 0],  offset: [2.2, 0.9, 4.0] },
-  /* teaching has no rig: the camera simply pulls back off the bench */
-  { sel: "#work-camp",       target: [-47.6, 1.3, 0],   offset: [2.6, 2.2, 6.6] },
-  /* experience gets the wide shot rather than a rig, lifting rather than
-     swinging so there is no whiplash across the length of the bench */
-  { sel: "#experience",      target: [-46.0, 2.0, 0],   offset: [1.0, 6.4, 17.0] },
-  { sel: "#stack",           target: [-52.9, 0.9, 0],   offset: [2.2, 1.1, 4.4] },
-  { sel: "#toolchain",       target: [-60.1, 0.72, 0],  offset: [2.4, 1.15, 4.2] },
-  { sel: "#contact",         target: [-58.0, 2.2, 0],   offset: [1.0, 8.2, 20.0] }
-];
-
-function fail(err) {
-  document.body.classList.add("no-world");
-  console.error(err);
-}
+/* ------------------------------------------------------------------- boot */
 
 function boot() {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: !coarse, powerPreference: "high-performance" });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 1.75));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.12;
+  renderer.toneMappingExposure = 1.1;
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x070d0c);
-  scene.fog = new THREE.Fog(0x070d0c, 11, 30);
+  scene.fog = new THREE.Fog(0x070d0c, 60, 150);
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environmentIntensity = 0.22;
   pmrem.dispose();
 
-  camera = new THREE.PerspectiveCamera(42, 1, 0.1, 90);
+  camera = new THREE.PerspectiveCamera(42, 1, 0.1, 400);
 
-  buildRoom();
-  buildLights();
+  lights();
 
   bench = createBench({ scene, camera, reduceMotion, readout: {
-    j1: document.getElementById("j1"),
-    j2: document.getElementById("j2"),
-    j3: document.getElementById("j3"),
-    j4: document.getElementById("j4"),
-    claw: document.getElementById("claw"),
-    mode: document.getElementById("mode")
+    j1: document.getElementById("j1"), j2: document.getElementById("j2"),
+    j3: document.getElementById("j3"), j4: document.getElementById("j4"),
+    claw: document.getElementById("claw"), mode: document.getElementById("mode")
   } });
+  island = buildIsland(scene, { reduceMotion });
 
-  stations = makeStations(scene);
-
-  measure();
   resize();
-  window.addEventListener("resize", () => { resize(); measure(); }, { passive: true });
-
-  /* The page is still settling when this runs: web fonts land late and move
-     every anchor, so measure again once the layout stops changing. */
-  window.addEventListener("load", measure, { once: true });
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
-  if (typeof ResizeObserver === "function") {
-    let last = 0;
-    new ResizeObserver(() => {
-      const h = document.body.scrollHeight;
-      if (Math.abs(h - last) > 2) { last = h; measure(); }
-    }).observe(document.body);
-  }
-  window.addEventListener("scroll", () => { scrolled = true; }, { passive: true });
-
-  if (coarse) setUpTouchControl();
-  bindStage();
-  placeCamera(0, true);
+  window.addEventListener("resize", resize, { passive: true });
+  bindPointer();
+  bindPanels();
+  snapCamera();
   requestAnimationFrame(frame);
 }
 
-/* ------------------------------------------------------------------ room */
+function lights() {
+  scene.add(new THREE.HemisphereLight(0x9fbcae, 0x0a1210, 0.55));
 
-function buildRoom() {
-  const len = BENCH_FROM - BENCH_TO;
-  const mid = (BENCH_FROM + BENCH_TO) / 2;
-
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(len + 26, 34),
-    new THREE.MeshStandardMaterial({ color: 0x0c1513, roughness: 0.74, metalness: 0.2 })
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set(mid, FLOOR_Y, 0);
-  floor.receiveShadow = true;
-  scene.add(floor);
-
-  const span = Math.round(len + 26);
-  const grid = new THREE.GridHelper(span, span, 0x2a423c, 0x182622);
-  grid.position.set(mid, FLOOR_Y + 0.002, 0);
-  grid.material.transparent = true;
-  grid.material.opacity = 0.4;
-  scene.add(grid);
-
-  const back = new THREE.Mesh(
-    new THREE.PlaneGeometry(len + 26, 14),
-    new THREE.MeshStandardMaterial({ color: 0x111c19, roughness: 0.95 })
-  );
-  back.position.set(mid, 4.4, -8.5);
-  scene.add(back);
-
-  /* the bench itself, one slab the whole page runs along */
-  const wood = new THREE.MeshStandardMaterial({ color: 0x3a3831, roughness: 0.78, metalness: 0.06 });
-  const under = new THREE.MeshStandardMaterial({ color: 0x23231e, roughness: 0.92 });
-  const steel = new THREE.MeshStandardMaterial({ color: 0x66716b, roughness: 0.42, metalness: 0.72 });
-
-  const top = new THREE.Mesh(new THREE.BoxGeometry(len, 0.16, BENCH_D), wood);
-  top.position.set(mid, -0.08, BENCH_Z);
-  top.castShadow = top.receiveShadow = true;
-  scene.add(top);
-
-  const apron = new THREE.Mesh(new THREE.BoxGeometry(len - 0.5, 0.24, BENCH_D - 0.5), under);
-  apron.position.set(mid, -0.28, BENCH_Z);
-  scene.add(apron);
-
-  for (let x = BENCH_FROM - 1.4; x > BENCH_TO; x -= 7.4) {
-    for (const sz of [-1, 1]) {
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.35, 0.18), steel);
-      leg.position.set(x, -1.36, BENCH_Z + sz * (BENCH_D / 2 - 0.35));
-      leg.castShadow = true;
-      scene.add(leg);
-    }
-    const brace = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, BENCH_D - 0.7), steel);
-    brace.position.set(x, -2.1, BENCH_Z);
-    scene.add(brace);
-  }
-
-  /* a run of shop lights over the bench, which is also where the key light comes from */
-  for (let x = BENCH_FROM - 3; x > BENCH_TO; x -= 9.2) {
-    const housing = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.16, 0.32),
-      new THREE.MeshStandardMaterial({ color: 0x1d2c28, roughness: 0.6, metalness: 0.5 }));
-    housing.position.set(x, 3.72, BENCH_Z - 0.6);
-    scene.add(housing);
-
-    const tube = new THREE.Mesh(new THREE.BoxGeometry(4.3, 0.08, 0.18),
-      new THREE.MeshBasicMaterial({ color: 0xffeccb }));
-    tube.position.set(x, 3.62, BENCH_Z - 0.6);
-    scene.add(tube);
-
-    for (const dx of [-1.9, 1.9]) {
-      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 2.6, 8),
-        new THREE.MeshStandardMaterial({ color: 0x2a3a35, roughness: 0.5, metalness: 0.7 }));
-      rod.position.set(x + dx, 5.05, BENCH_Z - 0.6);
-      scene.add(rod);
-    }
-  }
-}
-
-let key;
-
-function buildLights() {
-  scene.add(new THREE.HemisphereLight(0x8ea79b, 0x05100d, 0.34));
-
-  key = new THREE.DirectionalLight(0xfff2dc, 3.0);
+  key = new THREE.DirectionalLight(0xfff0d8, 2.6);
+  key.position.set(22, 34, 18);
   key.castShadow = true;
-  key.shadow.mapSize.set(coarse ? 1024 : 2048, coarse ? 1024 : 2048);
-  key.shadow.camera.near = 1;
-  key.shadow.camera.far = 20;
-  key.shadow.camera.left = -6;
-  key.shadow.camera.right = 6;
-  key.shadow.camera.top = 6;
-  key.shadow.camera.bottom = -6;
-  key.shadow.bias = -0.0009;
-  key.shadow.normalBias = 0.022;
+  const size = coarse ? 1024 : 2048;
+  key.shadow.mapSize.set(size, size);
+  Object.assign(key.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, near: 5, far: 90 });
+  key.shadow.bias = -0.0006;
+  key.shadow.normalBias = 0.04;
   scene.add(key);
-  scene.add(key.target);
 
-  const fill = new THREE.DirectionalLight(0x7fc4b4, 0.6);
-  fill.position.set(-4, 3, -3);
-  scene.add(fill);
+  const moon = new THREE.DirectionalLight(0x7fb0c4, 0.7);
+  moon.position.set(-30, 18, -24);
+  scene.add(moon);
 }
 
-/* ------------------------------------------------------------ scroll path */
+/* ----------------------------------------------------------------- camera */
 
-const anchors = [];
-const target = new THREE.Vector3();
+const ISLAND = new THREE.Vector3(0, GROUND + 1.5, 0);
+const view = { theta: 0.75, phi: 1.02, radius: 52 };
+const aim = { theta: 0.75, phi: 1.02, radius: 52 };
+
 const eye = new THREE.Vector3();
-const tmpA = new THREE.Vector3();
-const tmpB = new THREE.Vector3();
+const target = new THREE.Vector3();
+const wantEye = new THREE.Vector3();
+const wantTarget = new THREE.Vector3();
 
-function measure() {
-  anchors.length = 0;
-  for (const shot of SHOTS) {
-    const el = document.querySelector(shot.sel);
-    if (!el) continue;
-    const box = el.getBoundingClientRect();
-    const mid = box.top + window.scrollY + box.height / 2;
-    anchors.push({
-      at: Math.max(0, mid - window.innerHeight / 2),
-      target: new THREE.Vector3(...shot.target),
-      offset: new THREE.Vector3(...shot.offset)
-    });
+let current = null;          // the place in focus, or null for the overview
+let orbitNudge = 0;          // how far the reader has turned while at a place
+let lastInput = 0;
+
+function desired() {
+  const narrow = window.innerWidth < 992;
+
+  if (!current) {
+    wantTarget.copy(ISLAND);
+    wantEye.set(
+      Math.sin(view.phi) * Math.cos(view.theta),
+      Math.cos(view.phi),
+      Math.sin(view.phi) * Math.sin(view.theta)
+    ).multiplyScalar(view.radius).add(ISLAND);
+    return;
   }
-  anchors.sort((a, b) => a.at - b.at);
-  if (anchors.length) anchors[0].at = 0;
+
+  const p = current;
+  const dir = p.dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), orbitNudge);
+  const dist = p.dist * (narrow ? 1.25 : 1);
+  wantTarget.copy(p.focus);
+  wantEye.copy(p.focus).addScaledVector(dir, dist);
+  wantEye.y += p.lift + 1.6;
+
+  /* move the camera sideways so the landmark sits clear of the open panel */
+  const forward = wantTarget.clone().sub(wantEye).normalize();
+  const right = forward.clone().cross(new THREE.Vector3(0, 1, 0)).normalize();
+  if (narrow) {
+    wantEye.y -= dist * 0.2;
+    wantTarget.y -= dist * 0.2;
+  } else {
+    wantEye.addScaledVector(right, dist * 0.3);
+    wantTarget.addScaledVector(right, dist * 0.3);
+  }
 }
 
-/* which station the camera is nearest, as a fractional index */
-function station() {
-  const y = window.scrollY;
-  if (anchors.length < 2) return 0;
-  for (let i = 0; i < anchors.length - 1; i++) {
-    const a = anchors[i];
-    const b = anchors[i + 1];
-    if (y <= b.at) {
-      const span = Math.max(b.at - a.at, 1);
-      return i + clamp((y - a.at) / span, 0, 1);
-    }
-  }
-  return anchors.length - 1;
-}
-
-function placeCamera(dt, snap) {
-  const f = station();
-  const i = Math.floor(f);
-  const a = anchors[Math.min(i, anchors.length - 1)];
-  const b = anchors[Math.min(i + 1, anchors.length - 1)];
-  const k = smooth(f - i);
-
-  tmpA.copy(a.target).lerp(b.target, k);
-  tmpB.copy(a.offset).lerp(b.offset, k);
-
-  const ease = snap ? 1 : 1 - Math.exp(-5 * dt);
-  target.lerp(tmpA, ease);
-  eye.lerp(tmpA.clone().add(tmpB), ease);
-
+function snapCamera() {
+  desired();
+  eye.copy(wantEye);
+  target.copy(wantTarget);
   camera.position.copy(eye);
   camera.lookAt(target);
+}
 
-  /* keep the shadow volume where the camera is looking */
-  key.position.set(target.x + 2.4, 6.4, target.z + 3.4);
-  key.target.position.copy(target);
-  key.target.updateMatrixWorld();
+function moveCamera(dt, t) {
+  view.theta += (aim.theta - view.theta) * damp(6, dt);
+  view.phi += (aim.phi - view.phi) * damp(6, dt);
+  view.radius += (aim.radius - view.radius) * damp(5, dt);
+
+  if (!current && !reduceMotion && t - lastInput > 4) aim.theta += dt * 0.04;
+
+  desired();
+  const k = damp(current ? 2.6 : 3.2, dt);
+  eye.lerp(wantEye, k);
+  target.lerp(wantTarget, k);
+  camera.position.copy(eye);
+  camera.lookAt(target);
 }
 
 /* ---------------------------------------------------------------- pointer */
 
-let dragging = false;
-let lastX = 0;
-let lastY = 0;
+const ray = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+let down = null;
 
-const ndcOf = (e) => [
-  (e.clientX / window.innerWidth) * 2 - 1,
-  1 - (e.clientY / window.innerHeight) * 2
-];
+function toNdc(e) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, 1 - ((e.clientY - r.top) / r.height) * 2);
+  return ndc;
+}
 
-function bindStage() {
-  if (!stage) return;
+function pick(e) {
+  ray.setFromCamera(toNdc(e), camera);
+  const frameHit = ray.intersectObjects(island.frames, false)[0];
+  const placeMeshes = island.places.flatMap((p) => p.hits);
+  const placeHit = ray.intersectObjects(placeMeshes, false)[0];
+  const skillHit = ray.intersectObjects(island.skillItems.map((i) => i.holder), true)[0];
+  const best = [frameHit, skillHit, placeHit].filter(Boolean).sort((a, b) => a.distance - b.distance)[0];
+  if (!best) return null;
+  if (best === frameHit) return { kind: "frame", data: frameHit.object.userData };
+  if (best === skillHit) {
+    let o = skillHit.object;
+    while (o && !o.userData.skill) o = o.parent;
+    return o ? { kind: "skill", data: o.userData.skill } : null;
+  }
+  return { kind: "place", data: island.places.find((p) => p.key === placeHit.object.userData.place) };
+}
 
-  stage.addEventListener("pointerdown", (e) => {
-    stage.setPointerCapture(e.pointerId);
-    dragging = true;
-    lastX = e.clientX;
-    lastY = e.clientY;
-    const [x, y] = ndcOf(e);
-    const got = bench.pointerDown(x, y);
-    stage.style.cursor = got === "none" ? "crosshair" : "grabbing";
-  });
+function bindPointer() {
+  canvas.style.touchAction = "none";
+  const pointers = new Map();
+  let pinch = 0;
 
-  stage.addEventListener("pointermove", (e) => {
-    const [x, y] = ndcOf(e);
-    if (dragging) {
-      bench.pointerMove(x, y, Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY));
-      lastX = e.clientX;
-      lastY = e.clientY;
-    } else if (!coarse) {
-      stage.style.cursor = bench.hoverAt(x, y) ? "grab" : "crosshair";
+  canvas.addEventListener("pointerdown", (e) => {
+    canvas.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    lastInput = performance.now() / 1000;
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      pinch = Math.hypot(a.x - b.x, a.y - b.y);
+      down = null;
+      return;
+    }
+    down = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, travel: 0, grab: "none" };
+    if (current && current.key === "bench") {
+      toNdc(e);
+      down.grab = bench.pointerDown(ndc.x, ndc.y);
     }
   });
 
-  const release = (e) => {
-    if (!dragging) return;
-    dragging = false;
-    const [x, y] = ndcOf(e);
-    bench.pointerUp(x, y);
-    if (!coarse) stage.style.cursor = "crosshair";
-  };
+  canvas.addEventListener("pointermove", (e) => {
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-  stage.addEventListener("pointerup", release);
-  stage.addEventListener("pointercancel", release);
-  if (!coarse) stage.style.cursor = "crosshair";
-}
-
-/* A vertical drag scrolls the page on a touch screen, so the stage only takes
-   the gesture once the reader asks it to. */
-function setUpTouchControl() {
-  if (!grabButton) return;
-  grabButton.hidden = false;
-
-  const apply = (on) => {
-    if (stage) stage.style.touchAction = on ? "none" : "pan-y";
-    document.body.classList.toggle("is-controlling", on);
-    grabButton.textContent = on ? "Release" : "Take control";
-    grabButton.setAttribute("aria-pressed", String(on));
-    if (hint) {
-      hint.textContent = on
-        ? "Drag the block anywhere the arm reaches, into the air included. Release to scroll again."
-        : "Take control to move the block in three dimensions.";
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch) aim.radius = clamp(aim.radius * (pinch / d), 24, 80);
+      pinch = d;
+      return;
     }
-  };
 
-  grabButton.addEventListener("click", () => apply(!document.body.classList.contains("is-controlling")));
-  apply(false);
+    if (!down) {
+      if (coarse) return;
+      const hit = pick(e);
+      canvas.style.cursor = hit ? "pointer" : "grab";
+      showLabel(hit);
+      return;
+    }
+
+    const dx = e.clientX - down.lx, dy = e.clientY - down.ly;
+    down.lx = e.clientX; down.ly = e.clientY;
+    down.travel += Math.abs(dx) + Math.abs(dy);
+    lastInput = performance.now() / 1000;
+
+    if (down.grab !== "none") {
+      toNdc(e);
+      bench.pointerMove(ndc.x, ndc.y, Math.abs(dx) + Math.abs(dy));
+      return;
+    }
+    if (current) {
+      orbitNudge = clamp(orbitNudge - dx * 0.004, -0.9, 0.9);
+    } else {
+      aim.theta -= dx * 0.005;
+      aim.phi = clamp(aim.phi - dy * 0.004, 0.45, 1.38);
+    }
+    canvas.style.cursor = "grabbing";
+  });
+
+  const up = (e) => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = 0;
+    if (!down) return;
+    const tap = down.travel < 8;
+    if (down.grab !== "none") {
+      toNdc(e);
+      bench.pointerUp(ndc.x, ndc.y);
+    } else if (tap) {
+      const hit = pick(e);
+      if (hit?.kind === "frame") openViewer(hit.data);
+      else if (hit?.kind === "skill") { go("skills"); showLabel(hit); }
+      else if (hit?.kind === "place") go(hit.data.key);
+      else if (current?.key === "bench") { toNdc(e); bench.pointerDown(ndc.x, ndc.y); bench.pointerUp(ndc.x, ndc.y); }
+    }
+    down = null;
+    canvas.style.cursor = coarse ? "" : "grab";
+  };
+  canvas.addEventListener("pointerup", up);
+  canvas.addEventListener("pointercancel", up);
+
+  canvas.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    lastInput = performance.now() / 1000;
+    if (!current) aim.radius = clamp(aim.radius * (1 + Math.sign(e.deltaY) * 0.08), 24, 80);
+  }, { passive: false });
 }
 
-/* ------------------------------------------------------------------ loop */
+function showLabel(hit) {
+  if (!labelEl) return;
+  if (!hit) { labelEl.textContent = ""; return; }
+  labelEl.textContent = hit.kind === "place" ? hit.data.label
+    : hit.kind === "skill" ? hit.data.label
+    : hit.data.alt + " — open full size";
+}
+
+/* ----------------------------------------------------------------- panels */
+
+const order = () => island.places;
+
+function go(keyName, { replace = false } = {}) {
+  const place = island.places.find((p) => p.key === keyName);
+  if (!place) return;
+  current = place;
+  orbitNudge = 0;
+  document.body.classList.add("is-exploring", "is-focused");
+  document.body.dataset.place = place.key;
+
+  document.querySelectorAll("[data-panel]").forEach((el) => el.classList.remove("is-open"));
+  const panel = document.querySelector(place.panel);
+  if (panel) {
+    panel.classList.add("is-open");
+    const anchor = place.anchor && document.querySelector(place.anchor);
+    panel.scrollTop = anchor ? anchor.offsetTop - 16 : 0;
+  }
+  bar.hidden = false;
+  document.querySelectorAll("[data-place]").forEach((a) => {
+    if (a.dataset.place === place.key) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
+  });
+  const hash = (place.anchor || place.panel);
+  if (location.hash !== hash) history[replace ? "replaceState" : "pushState"](null, "", hash);
+  if (labelEl) labelEl.textContent = place.label;
+}
+
+function leave() {
+  current = null;
+  document.body.classList.remove("is-focused");
+  delete document.body.dataset.place;
+  document.querySelectorAll("[data-panel]").forEach((el) => el.classList.remove("is-open"));
+  document.querySelectorAll("[data-place]").forEach((a) => a.removeAttribute("aria-current"));
+  bar.hidden = true;
+  if (location.hash) history.pushState(null, "", location.pathname);
+  if (labelEl) labelEl.textContent = "";
+}
+
+function step(by) {
+  const list = order();
+  const i = current ? list.indexOf(current) : -1;
+  go(list[(i + by + list.length) % list.length].key);
+}
+
+function fromHash() {
+  const h = location.hash;
+  if (!h || h === "#top" || h === "#bench") { if (current) leave(); return; }
+  const place = island.places.find((p) => p.anchor === h) || island.places.find((p) => p.panel === h);
+  if (place) go(place.key, { replace: true });
+  else {
+    /* a deep link into a section that is part of a panel */
+    const el = document.querySelector(h);
+    const panel = el && el.closest("[data-panel]");
+    const owner = panel && island.places.find((p) => p.panel === "#" + panel.id);
+    if (owner) { go(owner.key, { replace: true }); panel.scrollTop = el.offsetTop - 16; }
+  }
+}
+
+function openViewer({ full, alt }) {
+  if (!viewer) { window.open(full, "_blank", "noopener"); return; }
+  document.getElementById("viewer-img").src = full;
+  document.getElementById("viewer-img").alt = alt;
+  document.getElementById("viewer-cap").textContent = alt;
+  viewer.showModal();
+}
+
+function bindPanels() {
+  document.querySelectorAll("[data-place]").forEach((a) => {
+    a.addEventListener("click", (e) => { e.preventDefault(); go(a.dataset.place); });
+  });
+  document.getElementById("explore")?.addEventListener("click", () => {
+    document.body.classList.add("is-exploring");
+    lastInput = performance.now() / 1000;
+  });
+  document.getElementById("panel-close").addEventListener("click", leave);
+  document.getElementById("panel-prev").addEventListener("click", () => step(-1));
+  document.getElementById("panel-next").addEventListener("click", () => step(1));
+  document.querySelector(".wordmark")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    leave();
+    document.body.classList.remove("is-exploring");
+  });
+
+  /* scans inside the panels open in the same viewer rather than a new tab */
+  document.querySelectorAll(".evidence a, .wall a").forEach((a) => {
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      const img = a.querySelector("img");
+      openViewer({ full: a.getAttribute("href"), alt: img ? img.alt : "" });
+    });
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (viewer?.open) return;
+    if (e.key === "Escape" && current) leave();
+    if (e.key === "ArrowRight" && current) step(1);
+    if (e.key === "ArrowLeft" && current) step(-1);
+  });
+  window.addEventListener("popstate", fromHash);
+  fromHash();
+}
+
+/* ------------------------------------------------------------------- loop */
 
 let prev = performance.now();
-let scrolled = true;
 
-function frame(now) {
+function frame(nowMs) {
   requestAnimationFrame(frame);
-  const raw = (now - prev) / 1000;
-  const dt = Math.min(raw, 0.05);
-  /* the camera eases on real elapsed time, so a slow device still keeps up
-     with the scroll instead of trailing a station behind */
-  const camDt = Math.min(raw, 0.5);
-  prev = now;
+  const raw = (nowMs - prev) / 1000;
+  prev = nowMs;
   if (document.hidden) return;
+  const dt = Math.min(raw, 0.05);
+  const t = nowMs / 1000;
 
-  placeCamera(camDt, false);
-
-  /* only the rigs near the camera are worth stepping */
-  const near = target.x;
-  if (Math.abs(near) < 20) bench.update(now, dt);
-  for (const s of stations) {
-    const away = Math.abs(s.x - near);
-    s.group.visible = away < 26;
-    if (away < 14) s.update(dt, now / 1000);
-  }
-
+  moveCamera(Math.min(raw, 0.25), t);
+  bench.update(nowMs, dt);
+  island.update(dt, t);
   renderer.render(scene, camera);
-  scrolled = false;
 }
 
 function resize() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
-  /* narrow screens need a wider lens or the rig falls out of the right half */
-  camera.fov = clamp(42 + (1.4 - w / h) * 11, 42, 58);
+  camera.fov = clamp(42 + (1.3 - w / h) * 14, 42, 62);
   camera.updateProjectionMatrix();
 }
 
-/* Declarations are all in place, so open the workshop. */
+function fail(err) {
+  document.body.classList.add("no-world");
+  console.error(err);
+}
+
 try { boot(); } catch (err) { fail(err); }

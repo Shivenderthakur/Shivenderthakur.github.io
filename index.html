@@ -118,9 +118,8 @@
 </script>
 </head>
 <body>
-<canvas id="world" aria-label="A workshop bench holding the robotic arm and the rigs behind each project" role="img"></canvas>
-<div class="scrim" aria-hidden="true"></div>
-<noscript><p class="noscript">This page runs a live 3D workshop behind the writing. The writing reads fine without it.</p></noscript>
+<canvas id="world" aria-label="A floating island: a workbench with a robotic arm at its centre, and a landmark for each part of the portfolio" role="img"></canvas>
+<noscript><p class="noscript">This portfolio is a 3D island you explore. Without JavaScript it reads as a normal page below.</p></noscript>
 
 <a class="skip" href="#work">Skip to the work</a>
 
@@ -129,18 +128,20 @@
     <span class="wordmark__name">Shivender Singh Thakur</span>
     <span class="wordmark__role">Chief Technology Officer, CoShot</span>
   </a>
-  <nav aria-label="Sections">
-    <a href="#research">Research</a>
-    <a href="#work">Work</a>
-    <a href="#experience">Experience</a>
-    <a href="#toolchain">Toolchain</a>
-    <a href="#contact">Contact</a>
+  <nav aria-label="Places on the island">
+    <a href="#about" data-place="bench">Workbench</a>
+    <a href="#research" data-place="research">Research</a>
+    <a href="#work" data-place="stage">Work</a>
+    <a href="#experience" data-place="hall">Credentials</a>
+    <a href="#stack" data-place="skills">Skills</a>
+    <a href="#toolchain" data-place="shed">Toolchain</a>
+    <a href="#contact" data-place="mast">Contact</a>
   </nav>
 </header>
 
 <main id="top">
 
-  <section class="hero" id="bench">
+  <section class="hero intro" id="bench">
     <div class="hero__text">
       <h1>Seven days from a field I have not worked in to hardware that runs.</h1>
       <p class="lede">I run short research sprints for teams that need a working answer rather
@@ -152,10 +153,10 @@
         <a class="btn" href="https://www.linkedin.com/in/shivender-singh-thakur" rel="me noopener" target="_blank">LinkedIn</a>
         <a class="btn" href="https://github.com/Shivenderthakur" rel="me noopener" target="_blank">GitHub</a>
       </div>
+      <button class="btn btn--go" type="button" id="explore">Explore the island</button>
     </div>
 
-    <div class="stage-catch" id="stage-catch" aria-hidden="true"></div>
-
+    
     <div class="readout" aria-hidden="true">
       <span class="hud__line"><b>J1</b><i id="j1">+000.0</i></span>
       <span class="hud__line"><b>J2</b><i id="j2">+000.0</i></span>
@@ -166,10 +167,11 @@
     </div>
 
     <button class="world-grab" id="world-grab" type="button" aria-pressed="false" hidden>Take control</button>
-    <p class="world-hint" id="world-hint">Drag the block, or its ring to lift it. The arm carries it back to the pedestal. Scroll to walk the bench.</p>
+    <p class="world-hint" id="world-hint">Drag to look around. Click a landmark to walk over to it.</p>
+    <p class="place-label" id="place-label" aria-live="polite"></p>
   </section>
 
-  <section class="prose" id="about" aria-labelledby="about-h">
+  <section class="prose panel" id="about" data-panel aria-labelledby="about-h">
     <div class="rail"><h2 id="about-h">The short version</h2></div>
     <div class="body">
       <p>Most people building AI agents have never made software touch the physical world. For
@@ -198,7 +200,7 @@
     </div>
   </section>
 
-  <section id="research" aria-labelledby="research-h">
+  <section class="panel" id="research" data-panel aria-labelledby="research-h">
     <div class="section-head">
       <h2 id="research-h">Research practice</h2>
       <p class="section-note">How a sprint runs, and what it costs when the field is far from tech.</p>
@@ -255,7 +257,7 @@
     </article>
   </section>
 
-  <section id="work" aria-labelledby="work-h">
+  <section class="panel" id="work" data-panel aria-labelledby="work-h">
     <div class="section-head">
       <h2 id="work-h">Work</h2>
       <p class="section-note">Five builds that went outside the lab. Evidence attached where it exists.</p>
@@ -283,29 +285,45 @@
         <ul class="facts">
           <li><span>Compute budget</span> 1 GB Raspberry Pi 3B+</li>
           <li><span>DLIB build</span> 4 hours, on the Pi</li>
+          <li><span>Press</span> 4 regional papers</li>
           <li><span>Shown</span> Bheenmal, March 2024</li>
         </ul>
 
         <figure class="evidence">
-          <figcaption>Regional press, March 2024</figcaption>
+          <figcaption>Bheenmal, March 2024</figcaption>
           <ul>
             <li>
-              <a href="assets/press/robonari-marudhar-aaina-2024-full.jpg" target="_blank" rel="noopener">
-                <img src="assets/press/robonari-marudhar-aaina-2024.jpg" width="480" height="971" loading="lazy"
-                     alt="Marudhar Aaina newspaper page reporting the robot's launch at Bheenmal.">
+              <a href="assets/events/robonari-on-stage-bheenmal-2024-full.jpg" target="_blank" rel="noopener">
+                <img src="assets/events/robonari-on-stage-bheenmal-2024.jpg" width="480" height="778" loading="lazy" alt="The humanoid robot standing on the stage at Bheenmal.">
               </a>
-              <span>Marudhar Aaina<br>Bheenmal</span>
+              <span>On stage</span>
+            </li>
+            <li>
+              <a href="assets/press/robonari-marudhar-aaina-2024-full.jpg" target="_blank" rel="noopener">
+                <img src="assets/press/robonari-marudhar-aaina-2024.jpg" width="400" height="809" loading="lazy" alt="Marudhar Aaina newspaper page reporting the launch.">
+              </a>
+              <span>Marudhar Aaina</span>
             </li>
             <li>
               <a href="assets/press/robonari-dainik-nirala-2024-full.jpg" target="_blank" rel="noopener">
-                <img src="assets/press/robonari-dainik-nirala-2024.jpg" width="480" height="771" loading="lazy"
-                     alt="Dainik Nirala Rajasthan News page reporting the robot's launch at Bheenmal.">
+                <img src="assets/press/robonari-dainik-nirala-2024.jpg" width="400" height="643" loading="lazy" alt="Dainik Nirala Rajasthan News page reporting the launch.">
               </a>
-              <span>Dainik Nirala<br>Rajasthan News</span>
+              <span>Dainik Nirala</span>
+            </li>
+            <li>
+              <a href="assets/press/robonari-sach-media-2024-full.jpg" target="_blank" rel="noopener">
+                <img src="assets/press/robonari-sach-media-2024.jpg" width="400" height="400" loading="lazy" alt="Sach Media News Network page reporting the launch.">
+              </a>
+              <span>Sach Media</span>
+            </li>
+            <li>
+              <a href="assets/press/robonari-jagruk-times-2024-full.jpg" target="_blank" rel="noopener">
+                <img src="assets/press/robonari-jagruk-times-2024.jpg" width="400" height="733" loading="lazy" alt="Jagruk Times page reporting the launch.">
+              </a>
+              <span>Jagruk Times</span>
             </li>
           </ul>
-          <p class="evidence__note">Both papers credit the robot to Narayan Jangid and team after
-          three years of work. My part was the software layer.</p>
+          <p class="evidence__note">All four papers credit the robot to Narayan Jangid and team after three years of work. My part was the software layer.</p>
         </figure>
       </div>
       <figure class="station" aria-hidden="true">
@@ -331,6 +349,18 @@
           <li><span>Team</span> 4 people, led</li>
           <li><span>Result</span> 1st prize, best final-year project</li>
         </ul>
+
+        <figure class="evidence">
+          <figcaption>Government Polytechnic College, Jodhpur</figcaption>
+          <ul>
+            <li>
+              <a href="assets/events/attendance-system-poster-2023-full.jpg" target="_blank" rel="noopener">
+                <img src="assets/events/attendance-system-poster-2023.jpg" width="480" height="480" loading="lazy" alt="Two students holding the Attendance System Using Face Recognition project poster.">
+              </a>
+              <span>The project poster</span>
+            </li>
+          </ul>
+        </figure>
       </div>
       <figure class="station" aria-hidden="true">
         <figcaption><b>ROLL&nbsp;CALL</b>One face, one row, no cloud</figcaption>
@@ -354,6 +384,24 @@
         angle then terminator, parsed by either an Arduino or an ESP32, so the arm is
         hardware-agnostic by design.</p>
         <p class="repo"><a href="https://github.com/Shivenderthakur/KINEMLINK_RELEASE" rel="noopener" target="_blank">KINEMLINK_RELEASE</a></p>
+
+        <figure class="evidence">
+          <figcaption>The rig, running</figcaption>
+          <ul>
+            <li>
+              <a href="assets/events/kinelink-gesture-demo-2025-full.jpg" target="_blank" rel="noopener">
+                <img src="assets/events/kinelink-gesture-demo-2025.jpg" width="480" height="257" loading="lazy" alt="A raised arm tracked on camera while the robotic arm mirrors the pose.">
+              </a>
+              <span>Gesture to servo</span>
+            </li>
+            <li>
+              <a href="assets/events/kinelink-interface-2025-full.jpg" target="_blank" rel="noopener">
+                <img src="assets/events/kinelink-interface-2025.jpg" width="480" height="262" loading="lazy" alt="The per-joint slider interface beside the arm on the bench.">
+              </a>
+              <span>Per-joint calibration</span>
+            </li>
+          </ul>
+        </figure>
       </div>
       <figure class="station" aria-hidden="true">
         <figcaption><b>GESTURE&nbsp;LINK</b>21 hand landmarks driving the jaws</figcaption>
@@ -379,14 +427,21 @@
         <p class="repo"><a href="https://github.com/Shivenderthakur/SAC-SmartArmController" rel="noopener" target="_blank">SAC-SmartArmController</a></p>
 
         <figure class="evidence">
-          <figcaption>PROMETEO 2025, IIT Jodhpur</figcaption>
+          <figcaption>Two of the three showings</figcaption>
           <ul>
             <li>
               <a href="assets/events/prometeo-2025-iit-jodhpur-full.jpg" target="_blank" rel="noopener">
                 <img src="assets/events/prometeo-2025-iit-jodhpur.jpg" width="480" height="360" loading="lazy"
                      alt="The RoboAI Hub team in front of the PROMETEO 2025 announcement wall at IIT Jodhpur.">
               </a>
-              <span>The RoboAI Hub team<br>at the announcement</span>
+              <span>PROMETEO 2025<br>IIT Jodhpur</span>
+            </li>
+            <li>
+              <a href="assets/events/ai-on-edge-mbm-faculty-workshop-full.jpg" target="_blank" rel="noopener">
+                <img src="assets/events/ai-on-edge-mbm-faculty-workshop.jpg" width="480" height="270" loading="lazy"
+                     alt="Group photograph from the AI on Edge faculty workshop on intelligent embedded systems at MBM University.">
+              </a>
+              <span>AI on Edge<br>MBM faculty workshop</span>
             </li>
           </ul>
         </figure>
@@ -425,7 +480,7 @@
     </article>
   </section>
 
-  <section id="experience" aria-labelledby="exp-h">
+  <section class="panel" id="experience" data-panel aria-labelledby="exp-h">
     <div class="section-head">
       <h2 id="exp-h">Experience</h2>
       <p class="section-note">Roles, in reverse.</p>
@@ -445,7 +500,7 @@
       </li>
       <li>
         <span class="tl__when">Nov 2023 &ndash; Aug 2025</span>
-        <span class="tl__what"><b>AI Systems and Robotics Intern</b>, RoboAI Hub. Public stages, government schools, IIT Jodhpur, regional press, and daily public demonstrations at Umaid Club and Nehru Park in Jodhpur.</span>
+        <span class="tl__what"><b>AI Systems and Robotics Intern</b>, RoboAI Hub. Including a 180-day programme on a Robot Interaction System, voice and image processing based. Public stages, government schools, IIT Jodhpur, regional press, and daily public demonstrations at Umaid Club and Nehru Park in Jodhpur.</span>
       </li>
       <li>
         <span class="tl__when">Jan 2025</span>
@@ -473,19 +528,33 @@
 
     <div class="education">
       <h3>Certification</h3>
-      <p class="certs__lede">Twenty-four in total. The ones that carry weight:</p>
-      <ul class="certs">
-        <li><b>CCNA</b> Introduction to Networks</li>
-        <li><b>CCNA</b> Switching and Routing</li>
-        <li><b>CCNA</b> Enterprise Networking and Security</li>
-        <li><b>Cisco</b> Networking Essentials</li>
-        <li><b>Google Cloud</b> around fifteen skill badges, from Vertex AI prompt design to Pub/Sub and Cloud Run</li>
-        <li><b>StraightArc</b> Cyber Security Fundamentals, a twelve-hour workshop</li>
-      </ul>
+      <p class="certs__lede">Twenty-four in total. The ones with a document behind them:</p>
+      <div class="wall">
+        <figure><a href="assets/certs/nptel-deep-learning-iit-ropar-2025-full.jpg" target="_blank" rel="noopener"><img src="assets/certs/nptel-deep-learning-iit-ropar-2025.jpg" width="280" height="200" loading="lazy" alt="NPTEL Elite certificate in Deep Learning from IIT Ropar."></a><figcaption><b>Deep Learning</b>NPTEL Elite, IIT Ropar, 2025</figcaption></figure>
+        <figure><a href="assets/certs/cadd-autofina-robotics-360h-2023-full.jpg" target="_blank" rel="noopener"><img src="assets/certs/cadd-autofina-robotics-360h-2023.jpg" width="280" height="198" loading="lazy" alt="CADD Centre and Autofina Robotics advanced certificate in robotics and automation."></a><figcaption><b>Robotics &amp; Automation</b>CADD Centre, 360 hours, 2023</figcaption></figure>
+        <figure><a href="assets/certs/roboai-hub-180-day-internship-2024-full.jpg" target="_blank" rel="noopener"><img src="assets/certs/roboai-hub-180-day-internship-2024.jpg" width="280" height="384" loading="lazy" alt="RoboAI Hub certificate for a 180-day AI internship programme."></a><figcaption><b>AI Internship</b>RoboAI Hub, 180 days, 2024</figcaption></figure>
+        <figure><a href="assets/certs/ccna-enterprise-networking-2023-full.jpg" target="_blank" rel="noopener"><img src="assets/certs/ccna-enterprise-networking-2023.jpg" width="280" height="189" loading="lazy" alt="Cisco CCNAv7 Enterprise Networking, Security and Automation certificate."></a><figcaption><b>CCNAv7 Enterprise</b>Cisco, 2023</figcaption></figure>
+        <figure><a href="assets/certs/ccna-switching-routing-2023-full.jpg" target="_blank" rel="noopener"><img src="assets/certs/ccna-switching-routing-2023.jpg" width="280" height="189" loading="lazy" alt="Cisco CCNAv7 Switching, Routing and Wireless Essentials certificate."></a><figcaption><b>CCNAv7 Switching</b>Cisco, 2023</figcaption></figure>
+        <figure><a href="assets/certs/straightarc-cyber-security-2024-full.jpg" target="_blank" rel="noopener"><img src="assets/certs/straightarc-cyber-security-2024.jpg" width="280" height="157" loading="lazy" alt="StraightArc certificate in Cyber Security Fundamentals."></a><figcaption><b>Cyber Security</b>StraightArc, 12 hours, 2024</figcaption></figure>
+        <figure><a href="assets/certs/pm-shri-kv-mount-abu-2025-full.jpg" target="_blank" rel="noopener"><img src="assets/certs/pm-shri-kv-mount-abu-2025.jpg" width="280" height="406" loading="lazy" alt="Certificate of completion of training at PM SHRI KV ISA, Mount Abu."></a><figcaption><b>Training delivered</b>PM SHRI KV, Mount Abu, 2025</figcaption></figure>
+        <figure><a href="assets/certs/academor-2023-full.jpg" target="_blank" rel="noopener"><img src="assets/certs/academor-2023.jpg" width="280" height="217" loading="lazy" alt="Academor certificate of outstanding performance."></a><figcaption><b>Outstanding performance</b>Academor, 2023</figcaption></figure>
+        <figure><a href="assets/certs/linkedin-linux-cli-2025-full.jpg" target="_blank" rel="noopener"><img src="assets/certs/linkedin-linux-cli-2025.jpg" width="280" height="217" loading="lazy" alt="LinkedIn Learning certificate, Learning Linux Command Line."></a><figcaption><b>Linux command line</b>LinkedIn Learning, 2025</figcaption></figure>
+        <figure><a href="assets/certs/linkedin-ecmascript-2025-full.jpg" target="_blank" rel="noopener"><img src="assets/certs/linkedin-ecmascript-2025.jpg" width="280" height="217" loading="lazy" alt="LinkedIn Learning certificate, Learning ECMAScript 6+."></a><figcaption><b>ECMAScript 6+</b>LinkedIn Learning, 2025</figcaption></figure>
+        <figure><a href="assets/certs/devtown-python-ai-2023-full.jpg" target="_blank" rel="noopener"><img src="assets/certs/devtown-python-ai-2023.jpg" width="280" height="208" loading="lazy" alt="devTown certificate, seven-day Python and AI bootcamp."></a><figcaption><b>Python and AI</b>devTown, 2023</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="education">
+      <h3>Out in the field</h3>
+      <div class="wall wall--wide">
+        <figure><a href="assets/events/tequity-hackathon-2025-full.jpg" target="_blank" rel="noopener"><img src="assets/events/tequity-hackathon-2025.jpg" width="480" height="318" loading="lazy" alt="Team photograph at the Tequity Hackathon 2025 with awards."></a><figcaption><b>Tequity Hackathon 2025</b>Build with AI</figcaption></figure>
+        <figure><a href="assets/events/roboai-hub-team-full.jpg" target="_blank" rel="noopener"><img src="assets/events/roboai-hub-team.jpg" width="480" height="432" loading="lazy" alt="The RoboAI Hub team outdoors beside a robotics banner."></a><figcaption><b>RoboAI Hub</b>The team I worked in</figcaption></figure>
+        <figure><a href="assets/events/indiasoft-expo-badge-2026-full.jpg" target="_blank" rel="noopener"><img src="assets/events/indiasoft-expo-badge-2026.jpg" width="420" height="420" loading="lazy" alt="Visitor badge for INDIASOFT and India Electronics Expo 2026, New Delhi."></a><figcaption><b>INDIASOFT 2026</b>India Electronics Expo, New Delhi</figcaption></figure>
+      </div>
     </div>
   </section>
 
-  <section id="stack" aria-labelledby="stack-h">
+  <section class="panel" id="stack" data-panel aria-labelledby="stack-h">
     <div class="section-head">
       <h2 id="stack-h">Bench inventory</h2>
       <p class="section-note">Boards I have shipped on, and what runs on them.</p>
@@ -524,7 +593,7 @@
     </div>
   </section>
 
-  <section id="toolchain" aria-labelledby="tool-h">
+  <section class="panel" id="toolchain" data-panel aria-labelledby="tool-h">
     <div class="section-head">
       <h2 id="tool-h">Where I work</h2>
       <p class="section-note">The editors and the machine underneath them.</p>
@@ -560,11 +629,20 @@
           <li>Arch Linux</li><li>Raspbian Lite</li><li>Headless Linux</li><li>bash</li>
           <li>SSH</li><li>VNC</li><li>CMake</li><li>Google Cloud</li>
         </ul>
+        <figure class="evidence">
+          <figcaption>The actual bench</figcaption>
+          <ul>
+            <li><a href="assets/bench/workstation-full.jpg" target="_blank" rel="noopener"><img src="assets/bench/workstation.jpg" width="480" height="640" loading="lazy" alt="A two-monitor desk with an editor open."></a><span>Where the code happens</span></li>
+            <li><a href="assets/bench/raspberry-pi-full.jpg" target="_blank" rel="noopener"><img src="assets/bench/raspberry-pi.jpg" width="480" height="640" loading="lazy" alt="A Raspberry Pi wired up on the bench."></a><span>Where it has to run</span></li>
+            <li><a href="assets/bench/motor-driver-bench-full.jpg" target="_blank" rel="noopener"><img src="assets/bench/motor-driver-bench.jpg" width="480" height="640" loading="lazy" alt="A driver board wired to two geared motors."></a><span>Where it moves</span></li>
+            <li><a href="assets/events/at-work-full.jpg" target="_blank" rel="noopener"><img src="assets/events/at-work.jpg" width="420" height="420" loading="lazy" alt="Working on a laptop at an event."></a><span>Away from it</span></li>
+          </ul>
+        </figure>
       </div>
     </div>
   </section>
 
-  <section id="contact" aria-labelledby="contact-h">
+  <section class="panel" id="contact" data-panel aria-labelledby="contact-h">
     <div class="section-head">
       <h2 id="contact-h">Say hello</h2>
     </div>
@@ -578,7 +656,18 @@
       </ul>
     </div>
   </section>
+  <div class="panel-bar" id="panel-bar" hidden>
+    <button type="button" id="panel-prev" aria-label="Previous place">&larr;</button>
+    <button type="button" id="panel-close">Back to the island</button>
+    <button type="button" id="panel-next" aria-label="Next place">&rarr;</button>
+  </div>
 </main>
+
+<dialog class="viewer" id="viewer">
+  <form method="dialog"><button class="viewer__close" aria-label="Close">&times;</button></form>
+  <img id="viewer-img" alt="">
+  <p id="viewer-cap"></p>
+</dialog>
 
 <footer>
   <span>Shivender Singh Thakur</span>
@@ -586,6 +675,5 @@
 </footer>
 
 <script type="module" src="js/world.js"></script>
-<script src="js/site.js" defer></script>
 </body>
 </html>
