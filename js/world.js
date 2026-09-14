@@ -309,6 +309,7 @@ function go(keyName, { replace = false } = {}) {
   orbitNudge = 0;
   orbitTilt = 0;
   zoomNudge = 1;
+  island.visit(place.key);
   document.body.classList.add("is-exploring", "is-focused");
   document.body.dataset.place = place.key;
 

@@ -1,9 +1,17 @@
 # Portfolio — Shivender Singh Thakur
 
-**Version 6.** The portfolio is a floating island you explore. Drag to look around, click a
+**Version 7.** The portfolio is a floating island you explore. Drag to look around, click a
 landmark to fly to it, and its part of the page opens beside it.
 
-Version 6 adds: an arm you can re-specify live (base height, upper arm, forearm, claw) with
+**New to this codebase? Read [`docs/HANDBOOK.md`](docs/HANDBOOK.md) first.** It holds the
+rules, architecture, verified facts, recipes and test procedure.
+
+Version 7 adds: every board and sensor from the CAD archives in a lit display cabinet at the
+Skills landmark; a converter that removes duplicate parts, applies the archives' silkscreen
+textures and simplifies part by part (the ESP32 went from 7.6 MB to 1.6 MB with its pins
+intact); the handbook and agent instructions.
+
+Version 6 added: an arm you can re-specify live (base height, upper arm, forearm, claw) with
 its reach, floor area and working volume computed and drawn as a dome; free 3D dragging of
 the block, into mid-air; a matte finish throughout the bench; a desktop tower beside the arm;
 a hall of fame for the certificates; a swipeable gallery viewer for every picture on the
@@ -52,8 +60,9 @@ node convert.mjs ../../data/raw ../../assets/models arduino-uno  # one model
 | sensors | HC-SR04 ultrasonic, PIR motion, IR, DHT11, IMU, MQ-135, MQ-2, LDR, rain, touch |
 | robotics | robotic arm |
 
-The lab shelf loads the lighter, cleaner ones (Uno, Pi 5, Pi 4B, Nano Every and seven
-sensors) and the arm on a turntable; phones load two. The rest are catalogued for later use.
+All seventeen boards and sensors stand in a lit display cabinet behind the Skills plinth,
+each with a name plate; they load the first time Skills is opened, and phones load six. The
+robotic arm turns on a plinth in the robotics lab. Full details are in `docs/HANDBOOK.md`.
 
 ## Realism
 

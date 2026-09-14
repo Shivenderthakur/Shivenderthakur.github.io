@@ -491,10 +491,10 @@ function skills(scene, reduceMotion, updaters) {
     ring.update(dt, t);
     if (!reduceMotion) ring.group.rotation.y += dt * 0.08;
   });
-  const s = sign("SKILLS"); s.position.set(0, 4.8, 3.2); g.add(s);
+  const s = sign("SKILLS"); s.position.set(0, 6.5, -5.52); g.add(s);
   shadows(g);
   const hits = [hitBox(g, 8.5, 5, 8.5, 2.4)];
-  return { group: g, focus: new THREE.Vector3(0, 2.1, 0), dist: 11, lift: 3.2, hits, ring, signMesh: s };
+  return { group: g, focus: new THREE.Vector3(0, 3.4, -4.4), dist: 15.5, lift: 0.3, hits, ring, signMesh: s };
 }
 
 function shed(scene, reduceMotion, updaters, frames) {
@@ -564,6 +564,118 @@ function aboutMarker(scene, reduceMotion, updaters) {
 
 /* ------------------------------------------------------------------ build */
 
+/* ------------------------------------------------------ hardware cabinet */
+
+/* Every board and sensor from the owner's CAD archives, on lit shelves behind
+   the skills plinth, each with a name plate. The structure is built at once;
+   the models (about 20 MB together) load the first time Skills is visited. */
+const HARDWARE = [
+  [
+    ["boards/arduino-uno", "Arduino Uno"],
+    ["boards/arduino-mega-2560", "Arduino Mega 2560"],
+    ["boards/arduino-nano-every", "Arduino Nano Every"],
+    ["boards/esp32-nodemcu", "ESP32 NodeMCU"],
+    ["boards/raspberry-pi-5", "Raspberry Pi 5"],
+    ["boards/raspberry-pi-4b", "Raspberry Pi 4B"],
+    ["boards/raspberry-pi-zero", "Raspberry Pi Zero"]
+  ],
+  [
+    ["sensors/hc-sr04-ultrasonic", "HC-SR04 ultrasonic"],
+    ["sensors/pir-motion", "PIR motion"],
+    ["sensors/ir-sensor", "IR obstacle"],
+    ["sensors/dht11-temperature-humidity", "DHT11 temp and humidity"],
+    ["sensors/imu-accelerometer-gyroscope", "IMU accel and gyro"]
+  ],
+  [
+    ["sensors/mq135-air-quality", "MQ-135 air quality"],
+    ["sensors/mq2-gas-smoke", "MQ-2 gas and smoke"],
+    ["sensors/ldr-light-sensor", "LDR light"],
+    ["sensors/rain-sensor", "Rain"],
+    ["sensors/touch-sensor", "Capacitive touch"]
+  ]
+];
+/* phones get one of each kind rather than 17 downloads */
+const PHONE_SET = new Set(["boards/arduino-uno", "boards/esp32-nodemcu", "boards/raspberry-pi-5", "sensors/hc-sr04-ultrasonic", "sensors/pir-motion", "sensors/dht11-temperature-humidity"]);
+
+function nameplate(text) {
+  const c = document.createElement("canvas");
+  c.width = 512; c.height = 80;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#0d1715"; ctx.fillRect(0, 0, 512, 80);
+  ctx.fillStyle = "#f0a31e"; ctx.fillRect(0, 76, 512, 4);
+  ctx.fillStyle = "#e3eae4"; ctx.font = "500 34px 'IBM Plex Mono', monospace";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(text, 256, 40, 490);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.Mesh(new THREE.PlaneGeometry(1.25, 0.2), new THREE.MeshBasicMaterial({ map: t, toneMapped: false }));
+}
+
+function cabinet(parent, updaters, reduceMotion) {
+  const g = new THREE.Group();
+  g.position.set(0, 1.0, -6.2);
+  parent.add(g);
+
+  const W = 11.4, H = 4.9, D = 1.3;
+  const body = new THREE.MeshStandardMaterial({ color: 0x1a2320, roughness: 0.85 });
+  const back = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.12), body);
+  back.position.set(0, H / 2, -D / 2);
+  g.add(back);
+  for (const x of [-W / 2, W / 2]) {
+    const side = new THREE.Mesh(new THREE.BoxGeometry(0.14, H, D), body);
+    side.position.set(x, H / 2, 0);
+    g.add(side);
+  }
+  const top = new THREE.Mesh(new THREE.BoxGeometry(W + 0.14, 0.16, D), body);
+  top.position.y = H;
+  g.add(top);
+
+  const shelfY = [3.55, 2.15, 0.75];
+  const strip = new THREE.MeshBasicMaterial({ color: AMBER });
+  shelfY.forEach((y) => {
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(W - 0.14, 0.08, D - 0.1), M.wood);
+    plank.position.set(0, y, 0);
+    g.add(plank);
+    const led = new THREE.Mesh(new THREE.BoxGeometry(W - 0.3, 0.02, 0.03), strip);
+    led.position.set(0, y + 1.28, D / 2 - 0.12);
+    g.add(led);
+  });
+  const glow = new THREE.PointLight(0xffe3b8, 12, 9, 2);
+  glow.position.set(0, 3.2, 2.2);
+  g.add(glow);
+  shadows(g);
+
+  const slots = [];
+  HARDWARE.forEach((row, r) => {
+    const step = (W - 1.2) / row.length;
+    row.forEach(([file, label], i) => {
+      const x = -W / 2 + 0.6 + step * (i + 0.5);
+      const plate = nameplate(label);
+      plate.position.set(x, shelfY[r] + 0.05, D / 2 - 0.01);
+      plate.rotation.x = -0.25;
+      g.add(plate);
+      slots.push({ file, x, y: shelfY[r] + 0.04, size: r === 0 ? Math.min(1.3, step * 0.86) : 0.95, board: r === 0 });
+    });
+  });
+
+  let loaded = false;
+  return {
+    load() {
+      if (loaded) return;
+      loaded = true;
+      slots.filter((s) => !coarseDevice || PHONE_SET.has(s.file)).forEach((s, k) =>
+        loadProp(s.file, s.size).then((prop) => {
+          if (!prop) return;
+          prop.position.set(s.x, s.y, -0.05);
+          /* boards lean back toward the room so the silkscreen reads; sensors turn slowly */
+          if (s.board) prop.rotation.x = 0.85;
+          else updaters.push((dt, t) => { if (!reduceMotion) prop.rotation.y = Math.sin(t * 0.5 + k) * 0.6; });
+          g.add(prop);
+        }));
+    }
+  };
+}
+
 export function buildIsland(scene, { reduceMotion }) {
   const updaters = [];
   const frames = [];
@@ -581,6 +693,7 @@ export function buildIsland(scene, { reduceMotion }) {
   aboutMarker(scene, reduceMotion, updaters);
 
   const all = [research, press, builds, creds, skill, tools, contact];
+  const hardware = cabinet(skill.group, updaters, reduceMotion);
 
   const place = (group, name, size, x, y, z, ry = 0) =>
     loadProp(name, size).then((prop) => {
@@ -600,41 +713,7 @@ export function buildIsland(scene, { reduceMotion }) {
   board.add(plinth(0.7, 1.0));
   place(board, "circuit_board", 1.1, 0, 1.02, 0, 0.3);
 
-  /* the hardware shelf in the lab: the boards and sensors the work ran on,
-     converted from their CAD exports, and the arm itself on a turntable */
-  const shelf = (y) => {
-    const plank = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.08, 0.6), M.wood);
-    plank.position.set(0, y, -3.0);
-    builds.group.add(plank);
-    for (const x of [-4.2, 0, 4.2]) {
-      const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.3, 0.5), M.steel);
-      bracket.position.set(x, y - 0.18, -3.02);
-      builds.group.add(bracket);
-    }
-  };
-  shelf(2.3); shelf(3.05);
-  const hw = coarseDevice
-    ? [["boards/arduino-uno", 1.1, -1.4, 3.09, -0.7], ["sensors/hc-sr04-ultrasonic", 0.8, 1.4, 3.09, -0.3]]
-    : [
-        ["boards/arduino-uno", 1.15, -3.3, 3.09, -0.7],
-        ["boards/raspberry-pi-5", 1.15, -1.1, 3.09, -0.7],
-        ["boards/raspberry-pi-4b", 1.15, 1.1, 3.09, -0.7],
-        ["boards/arduino-nano-every", 1.0, 3.3, 3.09, -0.7],
-        ["sensors/hc-sr04-ultrasonic", 0.8, -3.8, 2.34, -0.3],
-        ["sensors/pir-motion", 0.5, -2.55, 2.34, 0],
-        ["sensors/ir-sensor", 0.75, -1.3, 2.34, -0.5],
-        ["sensors/dht11-temperature-humidity", 0.48, -0.1, 2.34, 0],
-        ["sensors/imu-accelerometer-gyroscope", 0.62, 1.1, 2.34, -0.6],
-        ["sensors/mq135-air-quality", 0.62, 2.35, 2.34, -0.3],
-        ["sensors/touch-sensor", 0.7, 3.65, 2.34, -0.6]
-      ];
-  hw.forEach(([name, size, x, y, tilt]) =>
-    loadProp(name, size).then((prop) => {
-      if (!prop) return;
-      prop.position.set(x, y, -3.0);
-      prop.rotation.x = tilt;
-      builds.group.add(prop);
-    }));
+  /* the arm itself, converted from its CAD export, turning on a plinth in the lab */
   loadProp("robotics/robotic-arm", 1.7).then((arm) => {
     if (!arm) return;
     const turntable = new THREE.Group();
@@ -650,7 +729,7 @@ export function buildIsland(scene, { reduceMotion }) {
 
   /* the last three keep the hall's camera line clear: it stands well back so the
      whole wall of certificates fits, offset to the side of the open panel */
-  trees(scene, [[0, 0, 7], [-12, -10, 4.5], [11, -11, 7], [15, 3, 7.5], [1, 16, 8], [-15, 5, 6], [-9, -1.5, 4.5], [9, 12, 3.5], [4.3, -4.6, 2.5],
+  trees(scene, [[0, 0, 7], [-12, -10, 4.5], [11, -11, 7], [15, 3, 7.5], [1, 16, 8], [-15, 5, 9], [-9, -1.5, 4.5], [9, 12, 3.5], [4.3, -4.6, 2.5],
     [-3.2, 3.5, 3.4], [-1.6, 8.2, 3.6], [-0.2, 11.8, 3.4], [3.2, 12.4, 2.8]]);
 
   /* world-space focus for each place */
@@ -683,6 +762,10 @@ export function buildIsland(scene, { reduceMotion }) {
     places,
     frames,
     skillItems: skill.ring.items,
+    /* called by the world whenever a place opens */
+    visit(key) {
+      if (key === "skills") hardware.load();
+    },
     update(dt, t) {
       updaters.forEach((u) => u(dt, t));
     }
