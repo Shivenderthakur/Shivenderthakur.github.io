@@ -3,21 +3,26 @@
    with amber reserved for whatever is live. */
 
 :root {
-  --ground:   #070d0c;
-  --ink:      #dfe6df;
-  --muted:    #8ea198;
-  --rule:     rgba(223, 230, 223, 0.15);
-  --rule-sub: rgba(223, 230, 223, 0.08);
-  --phosphor: #f0a31e;
-  --glass:    rgba(8, 15, 13, 0.82);
+  /* 2010s instrument glass at dusk: slate ground, frosted panes, ice-cyan lines,
+     amber kept for whatever is live or open */
+  --ground:   #101c26;
+  --ink:      #e9f1f4;
+  --muted:    #93a8b2;
+  --rule:     rgba(154, 217, 238, 0.22);
+  --rule-sub: rgba(154, 217, 238, 0.1);
+  --line:     #9ad9ee;
+  --phosphor: #ffb43d;
+  --glass:    rgba(16, 28, 38, 0.78);
+  --pane:     rgba(18, 31, 42, 0.72);
+  --cut:      0.9rem;
 
-  --measure: 33rem;
-  --gutter: clamp(1.25rem, 5vw, 5rem);
+  --measure: 34rem;
+  --gutter: clamp(1.1rem, 4vw, 3.5rem);
   --rail-w: 11rem;
 
-  --sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
-  --serif: "Newsreader", Georgia, "Times New Roman", serif;
-  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --sans: "Titillium Web", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --mono: "Share Tech Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -33,7 +38,7 @@ body {
   margin: 0;
   background: transparent;
   color: var(--ink);
-  font-family: var(--serif);
+  font-family: var(--body);
   font-size: 1.0625rem;
   line-height: 1.62;
   font-optical-sizing: auto;
@@ -56,10 +61,10 @@ body {
   z-index: 1;
   pointer-events: none;
   background: linear-gradient(100deg,
-    rgba(7, 13, 12, 0.95) 0%,
-    rgba(7, 13, 12, 0.92) 32%,
-    rgba(7, 13, 12, 0.42) 55%,
-    rgba(7, 13, 12, 0.04) 74%);
+    rgba(14, 24, 33, 0.95) 0%,
+    rgba(14, 24, 33, 0.92) 32%,
+    rgba(14, 24, 33, 0.42) 55%,
+    rgba(14, 24, 33, 0.04) 74%);
 }
 
 body > header,
@@ -103,7 +108,7 @@ a:hover { text-decoration-color: var(--phosphor); }
   justify-content: space-between;
   padding: 1.35rem var(--gutter) 1.15rem;
   border-bottom: 1px solid var(--rule);
-  background: linear-gradient(to bottom, rgba(7, 13, 12, 0.98), rgba(7, 13, 12, 0.94));
+  background: linear-gradient(to bottom, rgba(14, 24, 33, 0.98), rgba(14, 24, 33, 0.94));
   backdrop-filter: blur(9px);
 }
 
@@ -112,7 +117,7 @@ a:hover { text-decoration-color: var(--phosphor); }
   display: block;
   font-family: var(--sans);
   font-weight: 800;
-  font-stretch: 112%;
+  
   letter-spacing: -0.018em;
   font-size: 1.03rem;
   line-height: 1.2;
@@ -153,7 +158,7 @@ a:hover { text-decoration-color: var(--phosphor); }
 .hero h1 {
   font-family: var(--sans);
   font-weight: 800;
-  font-stretch: 108%;
+  
   font-size: clamp(2rem, 4.3vw, 3.3rem);
   line-height: 1.03;
   letter-spacing: -0.032em;
@@ -213,13 +218,13 @@ a:hover { text-decoration-color: var(--phosphor); }
   font-family: var(--mono);
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
-  color: #7d9086;
+  color: #8aa3ae;
   pointer-events: none;
 }
 .hud__line { display: flex; gap: 0.7rem; }
-.hud__line b { font-weight: 400; width: 2.6rem; color: #5b6f66; }
+.hud__line b { font-weight: 400; width: 2.6rem; color: #6d8793; }
 .hud__line i { font-style: normal; color: var(--phosphor); }
-.hud__mode i { color: #93a89e; letter-spacing: 0.04em; }
+.hud__mode i { color: #a9c1ca; letter-spacing: 0.04em; }
 
 .world-hint {
   position: absolute;
@@ -232,7 +237,7 @@ a:hover { text-decoration-color: var(--phosphor); }
   font-family: var(--sans);
   font-size: 0.79rem;
   line-height: 1.45;
-  color: #7d9086;
+  color: #8aa3ae;
   pointer-events: none;
 }
 
@@ -246,7 +251,7 @@ a:hover { text-decoration-color: var(--phosphor); }
   font-weight: 600;
   color: var(--ink);
   background: rgba(9, 17, 15, 0.8);
-  border: 1px solid rgba(240, 163, 30, 0.55);
+  border: 1px solid rgba(255, 180, 61, 0.55);
   padding: 0.5rem 0.95rem;
   cursor: pointer;
 }
@@ -274,7 +279,7 @@ section:not(.hero) {
 h2 {
   font-family: var(--sans);
   font-weight: 800;
-  font-stretch: 108%;
+  
   letter-spacing: -0.024em;
   font-size: clamp(1.5rem, 2.6vw, 2rem);
   line-height: 1.1;
@@ -334,7 +339,7 @@ h2 {
 .entry h3 {
   font-family: var(--sans);
   font-weight: 600;
-  font-stretch: 104%;
+  
   font-size: clamp(1.16rem, 1.9vw, 1.4rem);
   line-height: 1.22;
   letter-spacing: -0.016em;
@@ -369,7 +374,7 @@ h2 {
   font-family: var(--mono);
   font-size: 0.68rem;
   line-height: 1.5;
-  color: #7d9086;
+  color: #8aa3ae;
 }
 .station figcaption b {
   display: block;
@@ -403,7 +408,7 @@ h2 {
   padding-top: 0.22rem;
 }
 .tl__what { max-width: 40rem; }
-.tl__what b { font-family: var(--sans); font-weight: 600; font-stretch: 104%; }
+.tl__what b { font-family: var(--sans); font-weight: 600;  }
 
 .education { margin-top: clamp(2.5rem, 5vw, 4rem); }
 .education h3 { font-family: var(--sans); font-weight: 600; font-size: 1.03rem; margin: 0 0 1rem; }
@@ -456,9 +461,9 @@ footer {
 @media (max-width: 61.99rem) {
   .scrim {
     background: linear-gradient(to bottom,
-      rgba(7, 13, 12, 0.55) 0%,
-      rgba(7, 13, 12, 0.86) 42%,
-      rgba(7, 13, 12, 0.93) 100%);
+      rgba(14, 24, 33, 0.55) 0%,
+      rgba(14, 24, 33, 0.86) 42%,
+      rgba(14, 24, 33, 0.93) 100%);
   }
   .hero { padding-bottom: 9rem; }
   .stage-catch { width: 100%; top: auto; height: 46%; bottom: 0; }
@@ -527,7 +532,7 @@ body.no-world .station { display: none; }
 .evidence a {
   display: block;
   border: 1px solid var(--rule-sub);
-  background: #0b1412;
+  background: #132330;
 }
 
 .evidence img {
@@ -540,7 +545,7 @@ body.no-world .station { display: none; }
 
 .evidence a:hover img,
 .evidence a:focus-visible img { filter: grayscale(0.25) brightness(1); }
-.evidence a:hover, .evidence a:focus-visible { border-color: rgba(240, 163, 30, 0.55); }
+.evidence a:hover, .evidence a:focus-visible { border-color: rgba(255, 180, 61, 0.55); }
 
 /* a clip in an evidence strip is marked as one, since its thumbnail is a still */
 .evidence a[data-video] { position: relative; }
@@ -554,8 +559,8 @@ body.no-world .station { display: none; }
   font-size: 0.6rem;
   letter-spacing: 0.04em;
   color: var(--phosphor);
-  background: rgba(7, 13, 12, 0.85);
-  border: 1px solid rgba(240, 163, 30, 0.55);
+  background: rgba(14, 24, 33, 0.85);
+  border: 1px solid rgba(255, 180, 61, 0.55);
 }
 
 .evidence li span {
@@ -583,7 +588,7 @@ body.no-world .station { display: none; }
   font-family: var(--mono);
   font-size: 0.76rem;
 }
-.repo a { color: var(--phosphor); text-decoration-color: rgba(240, 163, 30, 0.4); }
+.repo a { color: var(--phosphor); text-decoration-color: rgba(255, 180, 61, 0.4); }
 
 /* repository names run long and underscores are not break opportunities */
 .body a[href*="github.com"] { overflow-wrap: anywhere; }
@@ -620,7 +625,7 @@ body.no-world .station { display: none; }
 .tool-h3 {
   font-family: var(--sans);
   font-weight: 800;
-  font-stretch: 108%;
+  
   letter-spacing: -0.02em;
   font-size: 1.1rem;
   margin: 0;
@@ -690,7 +695,7 @@ body:not(.no-world) .masthead {
   position: fixed;
   inset: 0 0 auto 0;
   z-index: 20;
-  background: linear-gradient(to bottom, rgba(7, 13, 12, 0.92), rgba(7, 13, 12, 0));
+  background: linear-gradient(to bottom, rgba(14, 24, 33, 0.92), rgba(14, 24, 33, 0));
   border-bottom: 0;
   backdrop-filter: none;
   padding-bottom: 2.2rem;
@@ -710,7 +715,7 @@ body:not(.no-world) .intro {
   max-width: 34rem;
   padding: 2rem 2.1rem 2.2rem;
   border: 1px solid var(--rule);
-  background: rgba(7, 13, 12, 0.78);
+  background: rgba(14, 24, 33, 0.78);
   backdrop-filter: blur(10px);
   transition: opacity 400ms ease, transform 400ms ease;
 }
@@ -777,7 +782,7 @@ body:not(.no-world) .panel {
   padding: 6.5rem clamp(1.25rem, 3vw, 2.5rem) 6rem;
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: rgba(7, 13, 12, 0.9);
+  background: rgba(14, 24, 33, 0.9);
   backdrop-filter: blur(12px);
   border-left: 1px solid var(--rule);
   border-bottom: 0;
@@ -805,7 +810,7 @@ body:not(.no-world) .panel .section-head { margin-bottom: 1.5rem; }
   display: flex;
   gap: 0.5rem;
   padding: 0.8rem clamp(1.25rem, 3vw, 2.5rem);
-  background: linear-gradient(to top, rgba(7, 13, 12, 0.98) 60%, rgba(7, 13, 12, 0));
+  background: linear-gradient(to top, rgba(14, 24, 33, 0.98) 60%, rgba(14, 24, 33, 0));
 }
 .panel-bar[hidden] { display: none; }
 .panel-bar button {
@@ -857,10 +862,10 @@ body:not(.no-world) .panel .section-head { margin-bottom: 1.5rem; }
 }
 .wall--wide { grid-template-columns: repeat(auto-fill, minmax(min(10rem, 100%), 1fr)); }
 .wall figure { margin: 0; }
-.wall a { display: block; border: 1px solid var(--rule-sub); background: #0b1412; }
+.wall a { display: block; border: 1px solid var(--rule-sub); background: #132330; }
 .wall img { width: 100%; height: auto; display: block; filter: grayscale(0.6) brightness(0.9); transition: filter 200ms ease; }
 .wall a:hover img, .wall a:focus-visible img { filter: none; }
-.wall a:hover, .wall a:focus-visible { border-color: rgba(240, 163, 30, 0.55); }
+.wall a:hover, .wall a:focus-visible { border-color: rgba(255, 180, 61, 0.55); }
 .wall figcaption { margin-top: 0.45rem; font-family: var(--sans); font-size: 0.72rem; line-height: 1.35; color: var(--muted); }
 .wall figcaption b { display: block; color: var(--ink); font-weight: 600; }
 
@@ -871,7 +876,7 @@ body:not(.no-world) .panel .section-head { margin-bottom: 1.5rem; }
   max-height: 96vh;
   padding: 1rem 1rem 0.8rem;
   border: 1px solid var(--rule);
-  background: #0a1210;
+  background: #0f1c26;
   color: var(--ink);
   overflow: hidden;
 }
@@ -901,7 +906,7 @@ body:not(.no-world) .panel .section-head { margin-bottom: 1.5rem; }
   height: 2.8rem;
   font-size: 1.2rem;
   color: var(--ink);
-  background: rgba(7, 13, 12, 0.78);
+  background: rgba(14, 24, 33, 0.78);
   border: 1px solid var(--rule);
   cursor: pointer;
 }
@@ -926,7 +931,7 @@ body:not(.no-world) .panel .section-head { margin-bottom: 1.5rem; }
   height: 3.2rem;
   padding: 0;
   border: 1px solid var(--rule-sub);
-  background: #0b1412;
+  background: #132330;
   cursor: pointer;
   scroll-snap-align: center;
   opacity: 0.55;
@@ -960,7 +965,7 @@ body:not(.no-world)[data-place="skills"] .closeup {
   align-items: center;
   gap: 0.5rem;
   padding: 0.55rem 0.7rem;
-  background: rgba(7, 13, 12, 0.86);
+  background: rgba(14, 24, 33, 0.86);
   border: 1px solid var(--rule);
   font-family: var(--mono);
   font-size: 0.72rem;
@@ -976,8 +981,8 @@ body:not(.no-world)[data-place="skills"] .closeup {
   cursor: pointer;
 }
 .closeup button:hover, .closeup button:focus-visible { border-color: var(--phosphor); color: var(--phosphor); }
-.closeup .closeup__enter { color: #0a0f0e; background: var(--phosphor); border-color: var(--phosphor); }
-.closeup .closeup__enter:hover, .closeup .closeup__enter:focus-visible { color: #0a0f0e; background: #ffb940; }
+.closeup .closeup__enter { color: #101c26; background: var(--phosphor); border-color: var(--phosphor); }
+.closeup .closeup__enter:hover, .closeup .closeup__enter:focus-visible { color: #101c26; background: #ffb940; }
 .closeup__text { display: grid; gap: 0.1rem; min-width: 11.5rem; padding: 0 0.3rem; }
 .closeup__text b { font-weight: 500; color: var(--phosphor); }
 .closeup__text span { color: var(--muted); }
@@ -1019,7 +1024,7 @@ body:not(.no-world) .rig {
   font-family: var(--mono);
   font-size: 0.72rem;
   color: var(--ink);
-  background: rgba(7, 13, 12, 0.82);
+  background: rgba(14, 24, 33, 0.82);
   border: 1px solid var(--rule);
   backdrop-filter: blur(8px);
 }
@@ -1061,7 +1066,7 @@ body[data-place="bench"]:not(.no-world) .rig { opacity: 1; pointer-events: auto;
 .viewer form { position: absolute; top: 0.4rem; right: 0.4rem; margin: 0; }
 .viewer__close {
   font-size: 1.6rem; line-height: 1; width: 2.4rem; height: 2.4rem;
-  color: var(--ink); background: rgba(7, 13, 12, 0.8); border: 1px solid var(--rule); cursor: pointer;
+  color: var(--ink); background: rgba(14, 24, 33, 0.8); border: 1px solid var(--rule); cursor: pointer;
 }
 
 /* without WebGL the island is gone and the page reads top to bottom */
@@ -1078,7 +1083,7 @@ body:not(.is-exploring):not(.no-world) .world-hint { opacity: 0; }
 body:not(.no-world) > footer { display: none; }
 
 /* the "how I did it" breakdown inside work and research entries */
-.how { margin-top: 1.2rem; padding-left: 1rem; border-left: 1px solid rgba(240, 163, 30, 0.35); }
+.how { margin-top: 1.2rem; padding-left: 1rem; border-left: 1px solid rgba(255, 180, 61, 0.35); }
 .how h4 {
   margin: 1.3rem 0 0.45rem;
   font-family: var(--mono);
@@ -1094,3 +1099,395 @@ body:not(.no-world) > footer { display: none; }
 .steps li { margin: 0 0 0.7rem; padding-left: 0.2rem; line-height: 1.6; }
 .steps li::marker { font-family: var(--mono); color: var(--phosphor); }
 .steps b { color: var(--ink); font-weight: 600; }
+
+
+/* =====================================================================
+   2010s instrument layer: frosted panes with cut corners, the compass bar,
+   the radar, the thumb stick. Everything here sits over the walkable world.
+   ===================================================================== */
+
+body { background: var(--ground); }
+body:not(.no-world) h1, body:not(.no-world) h2 { font-weight: 600; letter-spacing: -0.01em; }
+.hero h1 { font-weight: 600; letter-spacing: -0.012em; line-height: 1.05; }
+h2 { font-weight: 600; letter-spacing: -0.008em; }
+.entry h3, .tool-h3, .tl__what b { font-weight: 600; }
+.wordmark__name { font-weight: 700; letter-spacing: 0.01em; font-size: 1.12rem; }
+
+kbd {
+  display: inline-block;
+  min-width: 1.5em;
+  padding: 0.02em 0.35em;
+  margin: 0 0.12em;
+  font-family: var(--mono);
+  font-size: 0.82em;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-bottom-width: 2px;
+  background: rgba(154, 217, 238, 0.06);
+}
+
+/* a pane with its top-left corner cut, the decade's signature instrument shape */
+body:not(.no-world) .intro,
+body:not(.no-world) .panel,
+body:not(.no-world) .rig,
+body:not(.no-world)[data-place="skills"] .closeup {
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--cut));
+}
+/* Once the campus is entered the card is an empty, invisible box, but the readout, the
+   tuning panel and the place label still sit inside its markup. A clip-path clips every
+   descendant, fixed ones and their clicks included, so it has to go with the card. */
+body.is-exploring:not(.no-world) .intro { clip-path: none; }
+/* the rig's cut corner would clip a focus ring drawn outside the summary; draw it inside */
+.rig summary:focus-visible { outline-offset: -3px; }
+body:not(.no-world) .intro {
+  background: var(--pane);
+  border: 1px solid var(--rule);
+  backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow: inset 0 1px 0 rgba(154, 217, 238, 0.18);
+}
+body:not(.no-world) .intro::before,
+body:not(.no-world) .panel::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0;
+  width: calc(var(--cut) * 1.42);
+  height: 1px;
+  background: var(--line);
+  transform-origin: 0 0;
+  transform: translate(0, var(--cut)) rotate(-45deg);
+  opacity: 0.8;
+}
+body:not(.no-world) .panel {
+  background: rgba(14, 25, 34, 0.86);
+  backdrop-filter: blur(16px) saturate(1.15);
+  border-left: 1px solid var(--rule);
+}
+body:not(.no-world) .panel .section-head h2 { color: var(--ink); }
+body:not(.no-world) .panel .section-head { padding-bottom: 0.9rem; border-bottom: 1px solid var(--rule); }
+
+.hero__keys { margin: 1.1rem 0 0; font-family: var(--body); font-size: 0.86rem; line-height: 1.6; color: var(--muted); max-width: 30rem; }
+.btn { font-family: var(--sans); font-weight: 600; letter-spacing: 0.02em; }
+.btn--go { color: #10202a; }
+.btn--go:hover, .btn--go:focus-visible { background: var(--line); border-color: var(--line); color: #10202a; }
+
+body:not(.no-world) .masthead {
+  background: linear-gradient(to bottom, rgba(14, 24, 33, 0.9), rgba(14, 24, 33, 0));
+}
+.masthead nav a[aria-current] { color: var(--phosphor); border-bottom-color: var(--phosphor); }
+.masthead nav a:hover, .masthead nav a:focus-visible { border-bottom-color: var(--line); }
+
+.panel-bar button, .closeup button, .rig__reset, .viewer__nav, .viewer__close { font-family: var(--sans); letter-spacing: 0.02em; }
+.panel-bar button:hover, .panel-bar button:focus-visible { border-color: var(--line); color: var(--line); }
+:focus-visible { outline-color: var(--line); }
+
+/* ------------------------------------------------------------ the HUD */
+.hud { display: none; }
+body:not(.no-world) .hud { display: block; opacity: 0; pointer-events: none; transition: opacity 400ms ease; }
+body:not(.no-world) .hud.is-on { opacity: 1; }
+
+.compass {
+  position: fixed;
+  top: 5.2rem;
+  left: 50%;
+  z-index: 12;
+  width: min(34rem, 62vw);
+  height: 1.9rem;
+  transform: translateX(-50%);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+  border-bottom: 1px solid var(--rule);
+}
+.compass::after {
+  content: "";
+  position: absolute;
+  left: 50%; bottom: 0;
+  width: 1px; height: 0.55rem;
+  background: var(--line);
+}
+.compass__strip { position: absolute; inset: 0; }
+.compass__mark {
+  position: absolute;
+  top: 0.3rem;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 0.72rem;
+  line-height: 1;
+  color: var(--muted);
+}
+.compass__mark--cardinal { font-family: var(--mono); font-size: 0.8rem; color: var(--line); }
+.compass__mark--place { font-family: var(--sans); font-weight: 600; letter-spacing: 0.02em; }
+.compass__mark--place::before { content: ""; display: block; width: 5px; height: 5px; margin: 0 auto 0.18rem; background: var(--line); transform: rotate(45deg); }
+.compass__mark.is-current { color: var(--phosphor); }
+.compass__mark.is-current::before { background: var(--phosphor); }
+
+.radar {
+  position: fixed;
+  left: var(--gutter);
+  bottom: 1.2rem;
+  z-index: 12;
+  width: 10rem;
+  height: 10rem;
+}
+.objective {
+  position: fixed;
+  left: calc(var(--gutter) + 11rem);
+  bottom: 5.1rem;
+  z-index: 12;
+  margin: 0;
+  max-width: 18rem;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 1.02rem;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+}
+.controls {
+  position: fixed;
+  left: calc(var(--gutter) + 11rem);
+  bottom: 2.3rem;
+  z-index: 12;
+  margin: 0;
+  font-family: var(--body);
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+}
+body:not(.no-world) .place-label { left: calc(var(--gutter) + 11rem); bottom: 3.8rem; color: var(--line); font-family: var(--mono); }
+body.is-focused .objective, body.is-focused .controls { opacity: 0; }
+
+/* ------------------------------------------------------ the thumb stick */
+.stick { display: none; }
+body:not(.no-world) .stick:not([hidden]) {
+  display: block;
+  position: fixed;
+  left: 1.4rem;
+  bottom: 1.6rem;
+  z-index: 13;
+  width: 7.5rem;
+  height: 7.5rem;
+  border-radius: 50%;
+  border: 1px solid var(--rule);
+  background: radial-gradient(circle, rgba(154, 217, 238, 0.12), rgba(14, 24, 33, 0.45) 70%);
+  touch-action: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+}
+body:not(.no-world) .stick.is-on { opacity: 1; pointer-events: auto; }
+.stick__knob {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 2.9rem; height: 2.9rem;
+  margin: -1.45rem 0 0 -1.45rem;
+  border-radius: 50%;
+  background: rgba(154, 217, 238, 0.32);
+  border: 1px solid var(--line);
+  box-shadow: 0 0 18px rgba(154, 217, 238, 0.35);
+}
+
+@media (max-width: 61.99rem) {
+  .compass { top: 4.9rem; width: 86vw; }
+  .radar { left: auto; right: 0.9rem; bottom: 1.4rem; width: 7rem; height: 7rem; }
+  .objective { left: 50%; right: auto; bottom: auto; top: 7.3rem; transform: translateX(-50%); text-align: center; font-size: 0.92rem; max-width: 80vw; }
+  .controls { display: none; }
+  body:not(.no-world) .place-label { left: 50%; transform: translateX(-50%); bottom: auto; top: 8.9rem; }
+  body.is-focused .radar, body.is-focused .stick { opacity: 0 !important; pointer-events: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body:not(.no-world) .hud, body:not(.no-world) .stick { transition: none; }
+  body:not(.no-world) .panel { transition: none; }
+}
+
+/* the objective line replaces the old centred hint once you are walking */
+body:not(.no-world) .world-hint { display: none; }
+/* the hardware close-up bar sits above the radar rather than on it */
+body:not(.no-world)[data-place="skills"] .closeup { bottom: 12.2rem; }
+@media (max-width: 61.99rem) {
+  body:not(.no-world)[data-place="skills"] .closeup { bottom: auto; top: 10.4rem; }
+  body:not(.no-world) .readout { top: 10.4rem; }
+  body:not(.no-world) .rig { top: 10.4rem; }
+}
+
+/* ------------------------------------------------ seated at the workbench
+   The walking instruments give way to the operator's: the readout and tuning
+   panel stay up, and a console pane with Stand up and About sits along the
+   bottom left, clear of the arm, which the camera frames in the middle. */
+.seat { display: none; }
+.seat[hidden] { display: none !important; }
+body:not(.no-world) .seat:not([hidden]) {
+  display: grid;
+  gap: 0.45rem;
+  position: fixed;
+  left: var(--gutter);
+  bottom: calc(1.2rem + var(--kb, 0px));
+  z-index: 14;
+  width: min(31rem, calc(100vw - 2 * var(--gutter)));
+  font-family: var(--mono);
+  color: var(--ink);
+}
+
+body.is-seated .hud .radar,
+body.is-seated .hud .controls,
+body.is-seated .hud .objective,
+body.is-seated .hud .compass,
+body.is-seated .place-label,
+body.is-seated .stick { opacity: 0 !important; pointer-events: none !important; }
+body.is-seated:not(.no-world) .readout { opacity: 1; }
+body.is-seated:not(.no-world) .rig {
+  opacity: 1;
+  pointer-events: auto;
+  /* never down into the console */
+  max-height: calc(100vh - 15.5rem - 19.5rem);
+  overflow-y: auto;
+}
+
+.seat__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem 0.6rem; }
+.seat__hint {
+  flex: 1 1 13rem;
+  margin: 0;
+  font-family: var(--body);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--muted);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.75);
+}
+.seat__actions { display: flex; gap: 0.4rem; margin-left: auto; }
+.seat__actions button {
+  min-height: 2.5rem;
+  padding: 0.45rem 0.95rem;
+  font-family: var(--sans);
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  background: rgba(14, 24, 33, 0.86);
+  border: 1px solid var(--rule);
+  cursor: pointer;
+}
+.seat__actions button:hover { border-color: var(--line); color: var(--line); }
+.seat__actions button[aria-pressed="true"] { border-color: var(--phosphor); color: var(--phosphor); }
+.seat__actions .seat__stand { color: #10202a; background: var(--phosphor); border-color: var(--phosphor); }
+.seat__actions .seat__stand:hover { color: #10202a; background: var(--line); border-color: var(--line); }
+.seat__actions button:focus-visible { outline: 2px solid var(--line); outline-offset: 2px; }
+
+/* the console: a frosted pane with the cut corner, a log and one prompt line */
+.console {
+  position: relative;
+  background: var(--pane);
+  border: 1px solid var(--rule);
+  backdrop-filter: blur(12px) saturate(1.15);
+  box-shadow: inset 0 1px 0 rgba(154, 217, 238, 0.18);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--cut));
+}
+.console::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0;
+  width: calc(var(--cut) * 1.42);
+  height: 1px;
+  background: var(--line);
+  transform-origin: 0 0;
+  transform: translate(0, var(--cut)) rotate(-45deg);
+  opacity: 0.8;
+}
+.console__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.4rem 0.75rem 0.32rem 1.15rem;
+  border-bottom: 1px solid var(--rule-sub);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.console__head b { font-weight: 400; color: var(--phosphor); text-transform: uppercase; letter-spacing: 0.12em; }
+.console__head span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.console__log {
+  list-style: none;
+  margin: 0;
+  padding: 0.45rem 0.75rem;
+  max-height: 8rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+.console__log:empty { display: none; }
+.console__row { white-space: pre-wrap; overflow-wrap: anywhere; color: #b9ccd4; }
+.console__row--cmd { color: var(--line); }
+.console__row--err { color: var(--phosphor); }
+.console__line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.3rem 0.75rem 0.4rem;
+  border-top: 1px solid var(--rule-sub);
+}
+/* the whole prompt line lights up when it has the keyboard */
+.console__line:focus-within { background: rgba(154, 217, 238, 0.07); box-shadow: inset 0 0 0 1px var(--line); }
+.console__prompt { flex: none; font-size: 0.8rem; color: var(--phosphor); }
+.console__line input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.35rem 0;
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  caret-color: var(--phosphor);
+}
+.console__line input:focus { outline: none; }
+
+/* phones: the seat controls run the full width of the bottom, short enough that
+   the camera keeps the desk and the arm in the upper part of the screen */
+@media (max-width: 61.99rem) {
+  body:not(.no-world) .seat:not([hidden]) {
+    left: 0.6rem;
+    right: 0.6rem;
+    width: auto;
+    bottom: calc(0.6rem + var(--kb, 0px));
+    gap: 0.35rem;
+  }
+  .seat__hint { flex-basis: 9rem; font-size: 0.72rem; line-height: 1.35; }
+  .seat__actions button { min-height: 2.6rem; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+  .console__head { display: none; }
+  .console__log { max-height: 4.4rem; padding: 0.35rem 0.65rem; font-size: 0.7rem; }
+  /* while the reader is typing the log stands taller, so a multi-line reply such as
+     help can be read from its first line; it drops back once the input lets go */
+  .console:focus-within .console__log { max-height: 9.5rem; }
+  .console__line { padding: 0.2rem 0.65rem 0.3rem; }
+  /* 16 px keeps phone browsers from zooming into the field */
+  .console__line input { font-size: 16px; }
+  body.is-seated:not(.no-world) .rig { max-height: calc(100vh - 10.4rem - 15rem); }
+  /* with the About sheet open (58vh from the bottom) an open rig stops above it */
+  body.is-seated.is-focused:not(.no-world) .rig { max-height: calc(42vh - 11rem); }
+  /* closed, the tuning panel is only as wide as its summary, clear of the arm */
+  body.is-seated:not(.no-world) .rig:not([open]) { width: auto; }
+  /* Open while seated, it would hang over the arm from the top right. It opens instead
+     as a sheet along the bottom, just above Stand up, and the console steps aside for it
+     (the rig sits inside the intro's stacking context, so it cannot be drawn over the
+     console). With the About sheet open it keeps its place at the top. */
+  body.is-seated:not(.is-focused):not(.no-world) .rig[open] {
+    top: auto;
+    left: 0.6rem;
+    right: 0.6rem;
+    bottom: 4.8rem;
+    width: auto;
+    max-height: min(19rem, 40vh);
+  }
+  body.is-seated:not(.is-focused):not(.no-world) .rig[open] .rig__stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  body.is-seated:not(.is-focused):not(.no-world):has(#rig[open]) .console { display: none; }
+}
+
+@media print { .seat { display: none !important; } }

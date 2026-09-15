@@ -1,17 +1,24 @@
-/* The island, laid out as a small tech campus: a plaza with the workbench at its
-   centre, one building per part of the page grouped into zones, and walkways drawn
-   as circuit traces between them. The workbench with the arm stands at the centre, its desk top at y = 0,
-   because the arm's inverse kinematics are written around the world origin.
-   Everything else stands on the ground below it. */
+/* The island, laid out as a small tech campus in metres, for a reader 1.75 m tall:
+   a plaza with the workbench at its centre, one building per part of the page, and
+   walkways drawn as circuit traces between them. The workbench itself (desk, chair,
+   computer and arm) is built by bench.js at the plaza centre; this module builds
+   everything round it.
+
+   Where each thing stands, its pad, its solids and floors, the zones, doors and the
+   start point all come from layout.js, which tools/checks/zones.mjs checks under
+   Node. The sizes of the things inside the buildings are here, and follow the real
+   objects: tables 75 cm high, certificates printed about A4, boards and sensors at
+   their true size. */
 
 import * as THREE from "three";
 import { roundedBox } from "./bench.js";
 import { RIGS } from "./stations.js";
 import { makeSkillRing } from "./icons.js";
 import { pbr, loadProp } from "./realism.js";
-import { MAT, plaza, pad, traces, planter, lamp, groundLabel, curtain, rimTiles } from "./campus.js";
+import { MAT, plaza, pad, traces, planter, lamp, groundLabel, curtain, rimTiles, door } from "./campus.js";
+import * as L from "./layout.js";
 
-export const GROUND = -1.4;
+export const GROUND = L.GROUND;
 const coarseDevice = window.matchMedia("(pointer: coarse)").matches;
 const AMBER = 0xf0a31e;
 
@@ -32,11 +39,12 @@ const M = {
 
 const loader = new THREE.TextureLoader();
 const shadows = (o) => o.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 /* ---------------------------------------------------------------- terrain */
 
 function terrain(scene) {
-  const top = new THREE.CylinderGeometry(24, 21, 2.4, 72, 3);
+  const top = new THREE.CylinderGeometry(L.ISLAND.radius, 21, 2.4, 72, 3);
   const pos = top.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const y = pos.getY(i);
@@ -71,20 +79,21 @@ function terrain(scene) {
 
 /* ----------------------------------------------------------------- frames */
 
-/* A real scan hung in the world. Clicking it opens the full-size image. */
-function frame(parent, { src, full, w, h, alt }, size, x, y, z, ry = 0, frames) {
-  const aspect = h / w;
-  const fw = size, fh = size * aspect;
+/* A real scan hung in the world, `width` metres wide in a thin dark frame.
+   Clicking it opens the full-size image. */
+function frame(parent, { src, full, w, h, alt }, width, x, y, z, ry = 0, frames) {
+  const fw = width, fh = width * (h / w);
+  const border = clamp(Math.min(fw, fh) * 0.07, 0.02, 0.045);
   const g = new THREE.Group();
   g.position.set(x, y, z);
   g.rotation.y = ry;
-  const back = new THREE.Mesh(new THREE.BoxGeometry(fw + 0.14, fh + 0.14, 0.06), M.frame);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(fw + border * 2, fh + border * 2, 0.025), M.frame);
   g.add(back);
   const tex = loader.load(src);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
   const pic = new THREE.Mesh(new THREE.PlaneGeometry(fw, fh), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55, metalness: 0, envMapIntensity: 0.4 }));
-  pic.position.z = 0.035;
+  pic.position.z = 0.0135;
   pic.userData = { full, alt, src };
   g.add(pic);
   parent.add(g);
@@ -92,11 +101,23 @@ function frame(parent, { src, full, w, h, alt }, size, x, y, z, ry = 0, frames) 
   return g;
 }
 
+/* the width that makes a picture's longer side `long` metres */
+const widthForLongSide = (item, long) => long / Math.max(1, item.h / item.w);
+
 /* ---------------------------------------------------------------- helpers */
 
-function rig(name, scale, reduceMotion, updaters) {
+/* A RIGS builder at `scale`. The rigs were drawn a few metres across with their own
+   fill lights; at desk size each light's reach and strength shrink with the rig, so
+   it lights its rig rather than the building round it. */
+function rig(name, scale, updaters) {
   const built = RIGS[name]();
   built.scene.scale.setScalar(scale);
+  built.scene.traverse((o) => {
+    if (o.isPointLight) {
+      o.distance *= scale * 1.5;
+      o.intensity *= scale * scale * 1.5;
+    }
+  });
   updaters.push((dt, t) => built.update(dt, t));
   return built.scene;
 }
@@ -113,59 +134,68 @@ function plinth(r, h) {
   return g;
 }
 
-function hitBox(group, w, h, d, y) {
+function hitBox(group, w, h, d, y, z = 0) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M.hit);
-  m.position.y = y;
+  m.position.set(0, y, z);
   group.add(m);
   return m;
 }
 
+/* a building sign, 2.4 m by 45 cm */
 function sign(text) {
   const c = document.createElement("canvas");
   c.width = 512; c.height = 96;
   const ctx = c.getContext("2d");
-  ctx.fillStyle = "#0d1715"; ctx.fillRect(0, 0, 512, 96);
-  ctx.strokeStyle = "#f0a31e"; ctx.lineWidth = 4; ctx.strokeRect(6, 6, 500, 84);
-  ctx.fillStyle = "#e8eee8"; ctx.font = "600 44px Archivo, Arial, sans-serif";
+  ctx.fillStyle = "#0f1b25"; ctx.fillRect(0, 0, 512, 96);
+  ctx.strokeStyle = "#9ad9ee"; ctx.lineWidth = 4; ctx.strokeRect(6, 6, 500, 84);
+  ctx.fillStyle = "#eef4f6"; ctx.font = "600 46px 'Titillium Web', Arial, sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText(text, 256, 50);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 0.52), new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.55, roughness: 0.6, side: THREE.DoubleSide }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.45), new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.55, roughness: 0.6, side: THREE.DoubleSide }));
   return m;
 }
 
-function landmark(scene, key, x, z) {
+/* a landmark's group, placed and turned as layout.js says, standing on its pad */
+function landmark(scene, key) {
+  const site = L.LANDMARKS[key];
   const g = new THREE.Group();
-  g.position.set(x, GROUND, z);
-  /* face the plaza, squared to the nearest quarter turn so the campus reads as a grid */
-  g.rotation.y = Math.round((Math.atan2(x, z) + Math.PI) / (Math.PI / 2)) * (Math.PI / 2);
+  g.position.set(site.x, GROUND, site.z);
+  g.rotation.y = site.ry;
   g.userData.key = key;
   scene.add(g);
-  return g;
+  const [cx, cz, w, d] = site.pad;
+  pad(g, cx, cz, w, d, 0, 0);
+  return { g, site };
+}
+
+/* A table or lab bench whose top is TABLE_TOP above the floor at floorY: a 4 cm top,
+   four square legs and a low shelf between them. */
+function table(parent, x, z, w, d, floorY) {
+  const legH = L.TABLE_TOP - 0.04;
+  const top = new THREE.Mesh(new THREE.BoxGeometry(w, 0.04, d), M.wood);
+  top.position.set(x, floorY + L.TABLE_TOP - 0.02, z);
+  parent.add(top);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, legH, 0.05), M.trim);
+    leg.position.set(x + sx * (w / 2 - 0.06), floorY + legH / 2, z + sz * (d / 2 - 0.06));
+    parent.add(leg);
+  }
+  const shelf = new THREE.Mesh(new THREE.BoxGeometry(w - 0.12, 0.02, d - 0.12), M.trim);
+  shelf.position.set(x, floorY + 0.18, z);
+  parent.add(shelf);
+  return floorY + L.TABLE_TOP;
 }
 
 /* ---------------------------------------------------------------- landmarks */
 
-function workbenchDesk(scene) {
-  const top = new THREE.Mesh(roundedBox(8.6, 0.16, 5.2, 0.04), M.wood);
-  top.position.set(-1.1, -0.08, 0);
-  scene.add(top);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.24, 0.2), M.steel);
-    leg.position.set(-1.1 + sx * 4.0, GROUND / 2 - 0.08, sz * 2.3);
-    scene.add(leg);
-  }
-  shadows(top);
-  top.receiveShadow = true;
-}
-
-function tower(scene, reduceMotion, updaters) {
-  const g = landmark(scene, "research", -7, -16);
-  pad(g, 0, 0, 7, 7, 0, 0);
+function tower(scene, updaters) {
+  const { g, site } = landmark(scene, "research");
   let y = 0;
-  [[2.4, 1.6], [2.0, 1.8], [1.7, 1.8]].forEach(([r, h], i) => {
-    const s = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.92, r, h, 10), i % 2 ? M.trim : M.wall);
+  site.drums.forEach(([r, h], i) => {
+    /* ten sides, turned so a flat face looks at the plaza */
+    const s = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.92, r, h, 10, 1, false, Math.PI / 10), i % 2 ? M.trim : M.wall);
     s.position.y = y + h / 2;
     g.add(s);
     const band = new THREE.Mesh(new THREE.TorusGeometry(r * 0.94, 0.05, 6, 30), M.glow);
@@ -174,26 +204,48 @@ function tower(scene, reduceMotion, updaters) {
     g.add(band);
     y += h;
   });
-  const deck = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 0.2, 32), M.trim);
+
+  /* the door, on the front face of the lowest drum and leaning with it */
+  const [r0, h0] = site.drums[0];
+  const apothem = Math.cos(Math.PI / 10);
+  const lean = Math.atan((r0 * 0.08 * apothem) / h0);
+  const d = door(site.door.w, site.door.h);
+  d.position.z = r0 * apothem - 0.02;
+  d.rotation.x = -lean;
+  g.add(d);
+  const s = sign("RESEARCH");
+  const signY = site.door.h + 0.45;
+  s.position.set(0, signY, (r0 - (signY / h0) * r0 * 0.08) * apothem + 0.04);
+  s.rotation.x = -lean;
+  g.add(s);
+
+  const deck = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 0.2, 32), M.trim);
   deck.position.y = y + 0.1;
   g.add(deck);
-  const sprint = rig("sprint", 0.85, reduceMotion, updaters);
-  sprint.position.y = y + 0.9;
+  const sprint = rig("sprint", 0.55, updaters);
+  sprint.position.y = y + 0.25;
   g.add(sprint);
-  const s = sign("RESEARCH"); s.position.set(0, 2.2, 2.7); g.add(s);
   shadows(g);
-  const hit = hitBox(g, 5, y + 3, 5, (y + 3) / 2);
-  return { group: g, focus: new THREE.Vector3(0, y + 1.1, 0), dist: 9, lift: 1.5, hits: [hit] };
+  const hit = hitBox(g, 5, y + 1.5, 5, (y + 1.5) / 2);
+  return { group: g, focus: new THREE.Vector3(0, 3.5, 0), dist: 12, lift: 0, hits: [hit] };
 }
 
 function stage(scene, reduceMotion, updaters, frames) {
-  const g = landmark(scene, "stage", 16, -6);
-  pad(g, 0, -0.3, 11, 7.2, 0, 0);
-  const deck = new THREE.Mesh(roundedBox(9, 0.8, 5.5, 0.1), M.trim);
-  deck.position.y = 0.4;
+  const { g, site } = landmark(scene, "stage");
+  const { w: DW, d: DD, h: DH } = site.deck;
+  const deck = new THREE.Mesh(roundedBox(DW, DH, DD, 0.05), M.trim);
+  deck.position.y = DH / 2;
   g.add(deck);
+  /* steps up the front at one side: 20 cm risers */
+  const st = site.steps;
+  for (let k = 1; k <= st.count; k++) {
+    const top = DH - st.rise * k, depth = st.run * k;
+    const step = new THREE.Mesh(new THREE.BoxGeometry(st.w, top, depth), M.trim);
+    step.position.set(st.x, top / 2, DD / 2 + depth / 2);
+    g.add(step);
+  }
   const back = curtain(9.4, 5.2, 0.3);
-  back.position.set(0, 3.4, -2.6);
+  back.position.set(0, DH + 2.6, -2.6);
   g.add(back);
   const truss = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.5, 0.5), M.roof);
   truss.position.set(0, 6.1, -2.4);
@@ -201,7 +253,8 @@ function stage(scene, reduceMotion, updaters, frames) {
   trussLed.position.set(0, 5.82, -2.14);
   g.add(truss, trussLed);
 
-  /* the humanoid, as a stand-in: the real one is in the photographs behind it */
+  /* the humanoid, as a stand-in: the real one is in the photographs behind it.
+     Built 2.82 units tall and stood on the deck at 1.6 m. */
   const bot = new THREE.Group();
   const fabric = new THREE.MeshPhysicalMaterial({ color: 0xa8281f, roughness: 0.78, sheen: 1, sheenColor: 0xff8a6a, sheenRoughness: 0.5 });
   const shell = new THREE.MeshPhysicalMaterial({ color: 0xd9dcd6, roughness: 0.3, metalness: 0.1, clearcoat: 0.8, clearcoatRoughness: 0.15 });
@@ -241,7 +294,8 @@ function stage(scene, reduceMotion, updaters, frames) {
   const shoulderL = new THREE.Mesh(new THREE.SphereGeometry(0.1, 20, 14), joint); shoulderL.position.set(-0.38, 2.12, 0);
   const shoulderR = shoulderL.clone(); shoulderR.position.x = 0.38;
   bot.add(dress, chest, neck, head, visor, ...eyes, armL, armR, shoulderL, shoulderR);
-  bot.position.set(0, 0.8, 0.4);
+  bot.scale.setScalar(1.6 / 2.82);
+  bot.position.set(0, DH, 0.4);
   g.add(bot);
   updaters.push((dt, t) => {
     if (reduceMotion) return;
@@ -250,31 +304,34 @@ function stage(scene, reduceMotion, updaters, frames) {
     head.rotation.y = Math.sin(t * 0.6) * 0.4;
   });
 
+  /* the photograph and the four clippings, long side 60 to 80 cm, hung on the
+     backdrop with their centres 1.8 m above the deck */
   const P = "assets/press/", E = "assets/events/";
   const items = [
-    { src: E + "robonari-on-stage-bheenmal-2024.webp", full: E + "robonari-on-stage-bheenmal-2024-full.webp", w: 480, h: 778, alt: "The humanoid on stage at Bheenmal" },
-    { src: P + "robonari-marudhar-aaina-2024.webp", full: P + "robonari-marudhar-aaina-2024-full.webp", w: 400, h: 809, alt: "Marudhar Aaina" },
-    { src: P + "robonari-dainik-nirala-2024.webp", full: P + "robonari-dainik-nirala-2024-full.webp", w: 400, h: 643, alt: "Dainik Nirala Rajasthan News" },
-    { src: P + "robonari-sach-media-2024.webp", full: P + "robonari-sach-media-2024-full.webp", w: 400, h: 400, alt: "Sach Media News Network" },
-    { src: P + "robonari-jagruk-times-2024.webp", full: P + "robonari-jagruk-times-2024-full.webp", w: 400, h: 733, alt: "Jagruk Times" }
+    { src: E + "robonari-on-stage-bheenmal-2024.webp", full: E + "robonari-on-stage-bheenmal-2024-full.webp", w: 480, h: 778, alt: "The humanoid on stage at Bheenmal", long: 0.8 },
+    { src: P + "robonari-marudhar-aaina-2024.webp", full: P + "robonari-marudhar-aaina-2024-full.webp", w: 400, h: 809, alt: "Marudhar Aaina", long: 0.8 },
+    { src: P + "robonari-dainik-nirala-2024.webp", full: P + "robonari-dainik-nirala-2024-full.webp", w: 400, h: 643, alt: "Dainik Nirala Rajasthan News", long: 0.7 },
+    { src: P + "robonari-sach-media-2024.webp", full: P + "robonari-sach-media-2024-full.webp", w: 400, h: 400, alt: "Sach Media News Network", long: 0.6 },
+    { src: P + "robonari-jagruk-times-2024.webp", full: P + "robonari-jagruk-times-2024-full.webp", w: 400, h: 733, alt: "Jagruk Times", long: 0.75 }
   ];
-  items.forEach((it, i) => frame(g, it, 1.35, -3.6 + i * 1.8, 3.5, -2.34, 0, frames));
+  items.forEach((it, i) => frame(g, it, widthForLongSide(it, it.long), -2.6 + i * 1.3, DH + 1.8, -2.42, 0, frames));
 
-  const s = sign("BHEENMAL 2024"); s.position.set(0, 6.1, -2.0); g.add(s);
+  const s = sign("BHEENMAL 2024"); s.position.set(0, DH + 2.75, -2.43); g.add(s);
   const spot = new THREE.PointLight(0xffe2b0, 18, 12, 2);
   spot.position.set(0, 5, 2);
   g.add(spot);
   shadows(g);
   const hit = hitBox(g, 10, 7, 6, 3.3);
-  return { group: g, focus: new THREE.Vector3(0, 2.8, -0.6), dist: 11, lift: 1.2, hits: [hit], panelAnchor: "#work-robonari" };
+  return { group: g, focus: new THREE.Vector3(0, DH + 1.2, -0.6), dist: 8, lift: 0, hits: [hit] };
 }
 
-function lab(scene, reduceMotion, updaters) {
-  const g = landmark(scene, "lab", 16, 7);
-  pad(g, 0, 0, 12, 9, 0, 0);
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(10, 0.2, 7), M.trim);
-  floor.position.y = 0.1;
+function lab(scene, updaters) {
+  const { g, site } = landmark(scene, "lab");
+  const FL = site.floor.top;
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(site.floor.w, FL, site.floor.d), M.trim);
+  floor.position.y = FL / 2;
   g.add(floor);
+  /* glass walls 4 m tall on three sides; the room is 3.9 m to the roof and open to the plaza */
   const wallB = curtain(10, 4, 0.25); wallB.position.set(0, 2.1, -3.4); g.add(wallB);
   const wallL = curtain(7, 4, 0.25); wallL.rotation.y = Math.PI / 2; wallL.position.set(-5, 2.1, 0); g.add(wallL);
   const wallR = curtain(7, 4, 0.25); wallR.rotation.y = -Math.PI / 2; wallR.position.set(5, 2.1, 0); g.add(wallR);
@@ -284,31 +341,40 @@ function lab(scene, reduceMotion, updaters) {
   eave.position.set(0, 4.08, 3.82);
   g.add(roof, eave);
 
-  [["roster", -3, 0.55], ["hand", 0, 0.62], ["trace", 3, 0.6]].forEach(([name, x, sc]) => {
-    const table = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.12, 1.6), M.wood);
-    table.position.set(x, 1.0, -0.6);
-    g.add(table);
-    const legs = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.9, 1.4), M.trim);
-    legs.position.set(x, 0.55, -0.6); legs.scale.set(1, 1, 1);
-    g.add(legs);
-    const r = rig(name, sc, reduceMotion, updaters);
-    r.position.set(x, 1.75, -0.6);
+  /* three lab benches along the back wall, a rig on each at desk size */
+  const b = site.benches;
+  let top = FL;
+  b.xs.forEach((x) => { top = table(g, x, b.z, b.w, b.d, FL); });
+  [["roster", b.xs[0] + 0.35, 0.36], ["hand", b.xs[1], 0.33], ["trace", b.xs[2], 0.27]].forEach(([name, x, up]) => {
+    const r = rig(name, 0.3, updaters);
+    r.position.set(x, top + up, b.z);
     g.add(r);
   });
-  const s = sign("ROBOTICS LAB"); s.position.set(0, 3.6, -3.2); g.add(s);
-  const lamp = new THREE.PointLight(0xcfe8dd, 14, 12, 2);
-  lamp.position.set(0, 3.4, 0.5);
-  g.add(lamp);
+  /* the turntable for the arm; the arm itself loads in buildIsland */
+  const tt = site.turntable;
+  const turntable = new THREE.Group();
+  turntable.position.set(tt.x, FL, tt.z);
+  turntable.add(plinth(tt.r, tt.h));
+  g.add(turntable);
+
+  const s = sign("ROBOTICS LAB"); s.position.set(0, 2.9, -3.25); g.add(s);
+  const lampLight = new THREE.PointLight(0xcfe8dd, 14, 12, 2);
+  lampLight.position.set(0, 3.4, 0.5);
+  g.add(lampLight);
   shadows(g);
-  const hit = hitBox(g, 10.5, 6, 7.5, 3);
-  return { group: g, focus: new THREE.Vector3(0, 2.2, -0.8), dist: 13.5, lift: -0.4, hits: [hit], panelAnchor: "#work-attendance" };
+  const hit = hitBox(g, 10.5, 4.4, 7.5, 2.2);
+  return { group: g, focus: new THREE.Vector3(0, 1.3, -1.5), dist: 7, lift: 0.3, hits: [hit], turntable };
 }
 
 /* A certificate hung the way a hall of fame hangs one: a matte brass moulding,
-   a cream mount, a lamp above and an engraved plate below. */
+   a cream mount, an engraved plate below and, on the upper row, a picture lamp.
+   The picture is printed about A4: at most 30 cm on either side, so a landscape
+   certificate is 30 x 21 cm and a portrait one 21 x 30 cm. The mount adds 1.5 cm
+   round it and the moulding another 1.5 cm, so the widest frame is 36 cm. */
 const BRASS = new THREE.MeshStandardMaterial({ color: 0xa88a58, roughness: 0.62, metalness: 0.45 });
 const MOUNT = new THREE.MeshStandardMaterial({ color: 0xe6e0cf, roughness: 0.95, metalness: 0 });
 const LAMP = new THREE.MeshStandardMaterial({ color: 0x1b2321, roughness: 0.8, metalness: 0.2 });
+const HONOUR = { wide: 0.3, tall: 0.3, plate: 0.2, mount: 0.015, moulding: 0.015 };
 
 function plateTexture(title, sub) {
   const c = document.createElement("canvas");
@@ -319,81 +385,84 @@ function plateTexture(title, sub) {
   ctx.fillStyle = grad; ctx.fillRect(0, 0, 512, 112);
   ctx.strokeStyle = "rgba(40,28,10,0.55)"; ctx.lineWidth = 3; ctx.strokeRect(6, 6, 500, 100);
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillStyle = "#23180a"; ctx.font = "600 38px Archivo, Arial, sans-serif";
+  ctx.fillStyle = "#23180a"; ctx.font = "600 40px 'Titillium Web', Arial, sans-serif";
   ctx.fillText(title, 256, 42, 480);
-  ctx.fillStyle = "#3b2c14"; ctx.font = "26px 'IBM Plex Mono', monospace";
+  ctx.fillStyle = "#3b2c14"; ctx.font = "26px 'Share Tech Mono', monospace";
   ctx.fillText(sub, 256, 82, 480);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
 
-function honour(parent, item, x, y, z, frames, scale = 1) {
+function honour(parent, item, x, y, z, frames, withLamp) {
   const aspect = item.h / item.w;
-  const fw = Math.min(1.7, 1.3 / aspect), fh = fw * aspect;
+  const fw = Math.min(HONOUR.wide, HONOUR.tall / aspect), fh = fw * aspect;
   const g = new THREE.Group();
   g.position.set(x, y, z);
-  g.scale.setScalar(scale);
   parent.add(g);
 
-  const mount = new THREE.Mesh(new THREE.BoxGeometry(fw + 0.26, fh + 0.26, 0.04), MOUNT);
+  const mw = fw + 2 * HONOUR.mount, mh = fh + 2 * HONOUR.mount;
+  const mount = new THREE.Mesh(new THREE.BoxGeometry(mw, mh, 0.01), MOUNT);
   g.add(mount);
-  const bar = (w, h, px, py) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.09), BRASS); b.position.set(px, py, 0.02); g.add(b); };
-  const ow = fw + 0.38, oh = fh + 0.38;
-  bar(ow, 0.08, 0, oh / 2 - 0.04); bar(ow, 0.08, 0, -oh / 2 + 0.04);
-  bar(0.08, oh, ow / 2 - 0.04, 0); bar(0.08, oh, -ow / 2 + 0.04, 0);
+  const t = HONOUR.moulding, ow = mw + 2 * t, oh = mh + 2 * t;
+  const bar = (w, h, px, py) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.02), BRASS); b.position.set(px, py, 0.01); g.add(b); };
+  bar(ow, t, 0, oh / 2 - t / 2); bar(ow, t, 0, -oh / 2 + t / 2);
+  bar(t, oh, ow / 2 - t / 2, 0); bar(t, oh, -ow / 2 + t / 2, 0);
 
   const tex = loader.load(item.src);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   const pic = new THREE.Mesh(new THREE.PlaneGeometry(fw, fh), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, metalness: 0, envMapIntensity: 0.35 }));
-  pic.position.z = 0.03;
+  pic.position.z = 0.0115;
   pic.userData = { full: item.full, alt: item.alt, src: item.src };
   g.add(pic);
   frames.push(pic);
 
-  const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 0.3),
+  const plateH = HONOUR.plate * (112 / 512);
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(HONOUR.plate, plateH),
     new THREE.MeshStandardMaterial({ map: plateTexture(item.title, item.sub), roughness: 0.55, metalness: 0.3 }));
-  plate.position.set(0, -oh / 2 - 0.22, 0.02);
+  plate.position.set(0, -oh / 2 - 0.008 - plateH / 2, 0.006);
   g.add(plate);
 
-  /* picture lamp: an arm off the wall, a hood, and a warm strip under it */
-  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.34, 8), LAMP);
-  arm.rotation.x = Math.PI / 2;
-  arm.position.set(0, oh / 2 + 0.16, 0.17);
-  const hood = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.5, 16), LAMP);
-  hood.rotation.z = Math.PI / 2;
-  hood.position.set(0, oh / 2 + 0.16, 0.34);
-  const strip = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.012, 0.03), new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
-  strip.position.set(0, oh / 2 + 0.125, 0.34);
-  g.add(arm, hood, strip);
+  if (withLamp) {
+    /* picture lamp: a short arm off the wall, a hood, and a warm strip under it */
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.1, 8), LAMP);
+    arm.rotation.x = Math.PI / 2;
+    arm.position.set(0, oh / 2 + 0.04, 0.05);
+    const hood = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.018, 0.2, 16), LAMP);
+    hood.rotation.z = Math.PI / 2;
+    hood.position.set(0, oh / 2 + 0.04, 0.1);
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.004, 0.01), new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
+    strip.position.set(0, oh / 2 + 0.028, 0.1);
+    g.add(arm, hood, strip);
+  }
   return g;
 }
 
 function hall(scene, frames) {
-  const g = landmark(scene, "hall", 0, 16.5);
-  pad(g, 0, 0, 18, 7.5, 0, 0);
-  const W = 16;
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(W, 0.3, 6), M.trim);
-  floor.position.y = 0.15;
+  const { g, site } = landmark(scene, "hall");
+  const W = site.width, FL = site.floor.top;
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(W, FL, site.floor.d), M.trim);
+  floor.position.y = FL / 2;
   g.add(floor);
   const wall = new THREE.Mesh(new THREE.BoxGeometry(W, 6.2, 0.3), new THREE.MeshStandardMaterial({ color: 0x22302c, roughness: 0.92 }));
-  wall.position.set(0, 3.4, -2.7);
+  wall.position.set(0, FL + 3.1, site.wallZ);
   g.add(wall);
-  const dado = new THREE.Mesh(new THREE.BoxGeometry(W, 0.12, 0.12), BRASS);
-  dado.position.set(0, 0.95, -2.5);
+  const face = site.wallZ + 0.15;
+  const dado = new THREE.Mesh(new THREE.BoxGeometry(W, 0.05, 0.05), BRASS);
+  dado.position.set(0, FL + 0.7, face + 0.025);
   g.add(dado);
   const runner = new THREE.Mesh(new THREE.PlaneGeometry(W - 1.5, 1.6), new THREE.MeshStandardMaterial({ color: 0x5a1f1a, roughness: 1 }));
   runner.rotation.x = -Math.PI / 2;
-  runner.position.set(0, 0.31, -0.6);
+  runner.position.set(0, FL + 0.01, -0.6);
   g.add(runner);
-  for (const x of [-W / 2 + 0.4, W / 2 - 0.4]) {
+  for (const [x, z] of site.columns) {
     const col = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 6.2, 16), M.steel);
-    col.position.set(x, 3.4, 2.5);
+    col.position.set(x, FL + 3.1, z);
     g.add(col);
   }
   const lintel = new THREE.Mesh(new THREE.BoxGeometry(W + 0.4, 0.55, 6), M.roof);
-  lintel.position.y = 6.75;
+  lintel.position.y = FL + 6.45;
   g.add(lintel);
 
   const C = "assets/certs/";
@@ -417,75 +486,89 @@ function hall(scene, frames) {
     ["devtown-python-ai-2023", 280, 208, "devTown certificate, seven-day Python and AI bootcamp, 2023", "PYTHON & AI", "devTown · 2023"],
     ["aws-community-builders-devtown-python-ai", 280, 203, "AWS Community Builders and devTown certificate of completion, seven-day Python and AI bootcamp", "PYTHON & AI BOOTCAMP", "AWS CB · devTown"]
   ];
-  /* two rows; past twelve frames they shrink so the rows still fit the wall.
-     2.08 is the widest honour frame: a 1.7 picture plus its brass moulding */
+  /* two rows at eye level, heights and spacing from layout.js (site.rows, site.step);
+     the widest frame with its moulding is 36 cm */
   const PER_ROW = Math.ceil(certs.length / 2);
-  const STEP = Math.min(2.45, (W - 2.2) / (PER_ROW - 1));
-  const SCALE = Math.min(1, (STEP - 0.08) / 2.08);
+  const rowSpan = (PER_ROW - 1) * site.step + 0.36;
   certs.forEach(([n, w, h, alt, title, sub], i) => {
     const row = i < PER_ROW ? 0 : 1;
     const col = row === 0 ? i : i - PER_ROW;
     const count = row === 0 ? PER_ROW : certs.length - PER_ROW;
     honour(g, { src: C + n + ".webp", full: C + n + "-full.webp", w, h, alt, title, sub },
-      -((count - 1) * STEP) / 2 + col * STEP, row === 0 ? 4.55 : 2.2, -2.5, frames, SCALE);
+      -((count - 1) * site.step) / 2 + col * site.step, FL + site.rows[row], face + 0.006, frames, row === 0);
   });
-  const s = sign("HALL OF FAME"); s.position.set(0, 6.75, 3.02); g.add(s);
+  const s = sign("HALL OF FAME"); s.position.set(0, FL + 2.9, face + 0.02); g.add(s);
   for (const x of [-5, 0, 5]) {
     const light = new THREE.SpotLight(0xffe6c0, 16, 14, 0.75, 0.6, 1.6);
-    light.position.set(x, 6.2, 1.8);
-    light.target.position.set(x, 3.2, -2.5);
+    light.position.set(x, FL + 5.2, 1.8);
+    light.target.position.set(x, FL + 1.6, site.wallZ);
     g.add(light, light.target);
   }
   shadows(g);
   const hit = hitBox(g, W + 0.5, 7, 6.5, 3.4);
-  return { group: g, focus: new THREE.Vector3(0, 3.2, -1.6), dist: 18.5, lift: -0.8, hits: [hit] };
+  /* The close-up stands back just far enough to fit a whole row with 20 cm to
+     spare each side. At the 50 degree camera on a 16:10 screen the view is about
+     1.49 times as wide as it is far away, and the wall is 75 cm behind the focus.
+     With frames 60 cm apart that is 3 m; never closer than that. */
+  const dist = Math.max(3, (rowSpan + 0.4) / 1.49 - 0.75);
+  return { group: g, focus: new THREE.Vector3(0, FL + 1.6, -1.8), dist, lift: 0, hits: [hit] };
 }
 
 function skills(scene, reduceMotion, updaters) {
-  const g = landmark(scene, "skills", -14, 2);
-  pad(g, 0, -1.6, 13, 12.4, 0, 0);
-  const base = plinth(4, 0.5);
-  g.add(base);
-  const boards = rig("boards", 0.9, reduceMotion, updaters);
-  boards.position.y = 1.5;
+  const { g, site } = landmark(scene, "skills");
+  const top = L.PAD_TOP + site.plinth.h;
+  g.add(plinth(site.plinth.r, top));
+  const boards = rig("boards", 0.3, updaters);
+  boards.position.y = top + 0.25;
   g.add(boards);
-  const ring = makeSkillRing(reduceMotion);
-  ring.group.position.y = 0.5;
+  const ring = makeSkillRing(reduceMotion, { radius: site.ring.radius, low: site.ring.low, high: site.ring.high, padY: site.plinth.h });
+  ring.group.position.y = L.PAD_TOP;
   g.add(ring.group);
   updaters.push((dt, t) => {
     ring.update(dt, t);
     if (!reduceMotion) ring.group.rotation.y += dt * 0.08;
   });
-  const s = sign("SKILLS"); s.position.set(0, 6.5, -5.52); g.add(s);
+  /* a glass wall behind the hardware showcase, with the sign on it */
+  const bd = site.backdrop;
+  const back = curtain(bd.w, bd.h, 0.2);
+  back.position.set(0, L.PAD_TOP + bd.h / 2, bd.z);
+  g.add(back);
+  const s = sign("SKILLS"); s.position.set(0, L.PAD_TOP + 2.75, bd.z + 0.12); g.add(s);
   shadows(g);
-  const hits = [hitBox(g, 8.5, 5, 8.5, 2.4)];
-  return { group: g, focus: new THREE.Vector3(0, 3.4, -4.4), dist: 15.5, lift: 0.3, hits, ring, signMesh: s };
+  const sc = site.showcase;
+  const hits = [
+    hitBox(g, site.plinth.r * 2 + 0.6, 2.1, site.plinth.r * 2 + 0.6, L.PAD_TOP + 1.05),
+    hitBox(g, sc.w + 0.2, sc.h, sc.d + 0.2, L.PAD_TOP + sc.h / 2, sc.z)
+  ];
+  return { group: g, focus: new THREE.Vector3(0, 1.4, -2.2), dist: 6.5, lift: 0.2, hits, ring, signMesh: s };
 }
 
-function shed(scene, reduceMotion, updaters, frames) {
-  const g = landmark(scene, "shed", -13, -10);
-  pad(g, 0, 0, 7, 5.6, 0, 0);
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.2, 4), M.trim); floor.position.y = 0.1; g.add(floor);
+function shed(scene, updaters, frames) {
+  const { g, site } = landmark(scene, "shed");
+  const FL = site.floor.top;
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(site.floor.w, FL, site.floor.d), M.trim); floor.position.y = FL / 2; g.add(floor);
   const back = curtain(5.4, 3.4, 0.2); back.position.set(0, 1.8, -1.9); g.add(back);
   const roof = new THREE.Mesh(new THREE.BoxGeometry(6, 0.2, 4.6), M.roof); roof.position.set(0, 3.6, 0); roof.rotation.x = -0.12; g.add(roof);
-  const table = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.12, 1.8), M.wood); table.position.set(0, 1.0, -0.4); g.add(table);
-  const props = rig("props", 0.6, reduceMotion, updaters);
-  props.position.set(0, 1.08, -0.4);
+  const t = site.table;
+  const top = table(g, t.x, t.z, t.w, t.d, FL);
+  /* the bench of tools at desk size: a monitor about 55 cm wide, keyboard, breadboard */
+  const props = rig("props", 0.34, updaters);
+  props.position.set(t.x + 0.15, top - 0.02, t.z);
   g.add(props);
+  /* photographs of the real bench, 40 by 53 cm at eye level */
   const B = "assets/bench/";
   [["workstation", "The desk"], ["raspberry-pi", "The Pi"], ["motor-driver-bench", "The motor bench"]].forEach(([n, alt], i) => {
-    frame(g, { src: B + n + ".webp", full: B + n + "-full.webp", w: 480, h: 640, alt }, 0.8, -1.5 + i * 1.5, 1.95, -1.7, 0, frames);
+    frame(g, { src: B + n + ".webp", full: B + n + "-full.webp", w: 480, h: 640, alt }, 0.4, -0.6 + i * 0.6, FL + 1.6, -1.77, 0, frames);
   });
-  const s = sign("TOOLCHAIN"); s.position.set(0, 3.25, -1.66); s.scale.setScalar(0.8); g.add(s);
+  const s = sign("TOOLCHAIN"); s.position.set(0, FL + 2.6, -1.78); g.add(s);
   shadows(g);
   const hit = hitBox(g, 6, 4, 4.6, 2);
-  return { group: g, focus: new THREE.Vector3(0, 1.8, -0.4), dist: 7.5, lift: 1.1, hits: [hit] };
+  return { group: g, focus: new THREE.Vector3(0, 1.3, -1.0), dist: 4.5, lift: 0.3, hits: [hit] };
 }
 
 function mast(scene, reduceMotion, updaters) {
-  const g = landmark(scene, "mast", 8, -16);
-  pad(g, 0, 0, 5, 5, 0, 0);
-  const base = plinth(1.6, 0.4); g.add(base);
+  const { g, site } = landmark(scene, "mast");
+  const base = plinth(site.plinth.r, site.plinth.h); g.add(base);
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.22, 9, 10), M.steel);
   pole.position.y = 4.9; g.add(pole);
   for (let i = 0; i < 4; i++) {
@@ -510,176 +593,311 @@ function mast(scene, reduceMotion, updaters) {
       w.material.opacity = 0.6 * (1 - k);
     });
   });
-  const s = sign("SAY HELLO"); s.position.set(0, 1.4, 1.8); g.add(s);
+  /* the sign hangs between two posts in front of the mast, 3 m tall, so it reads
+     at a person's height and you walk up to the mast underneath it */
+  const gate = site.gate;
+  for (const side of [-1, 1]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, gate.h, 12), M.steel);
+    post.position.set(side * gate.x, gate.h / 2, gate.z);
+    g.add(post);
+  }
+  const s = sign("SAY HELLO"); s.position.set(0, gate.h - 0.25, gate.z); g.add(s);
   shadows(g);
   const hit = hitBox(g, 3.4, 11, 3.4, 5.4);
-  return { group: g, focus: new THREE.Vector3(0, 4.2, 0), dist: 19, lift: -0.5, hits: [hit] };
+  return { group: g, focus: new THREE.Vector3(0, 4.2, 0), dist: 14, lift: 0, hits: [hit] };
 }
 
-function aboutMarker(scene, reduceMotion, updaters) {
-  /* the serial-link rig stands beside the bench and belongs to the About panel */
+/* The serial-link rig beside the workbench, part of the About panel: the link
+   between an Arduino Nano and a Raspberry Pi, both at their true size, on a matte
+   mat on a 90 cm plinth. Their centres are 20 cm apart, joined by a lead 5 mm
+   thick with a pulse running along it, and above them a 20 cm scope trace shows
+   the frame on the line: start bit low, eight data bits, stop bit high. The rig
+   faces the start point, so the local +z side is the one the reader sees. */
+function serialLink(scene, reduceMotion, updaters) {
+  const at = L.SERIAL_LINK;
   const g = new THREE.Group();
-  g.position.set(4.6, GROUND, -4.2);
+  g.position.set(at.x, GROUND, at.z);
+  g.rotation.y = Math.atan2(L.START.x - at.x, L.START.z - at.z);
   scene.add(g);
-  g.add(plinth(1.1, 1.4));
-  const u = rig("uart", 0.7, reduceMotion, updaters);
-  u.position.y = 2.3;
-  g.add(u);
+  g.add(plinth(at.r, at.h));
+
+  /* a 46 x 24 cm mat, inside the amber ring on the plinth top */
+  const matTop = at.h + 0.004;
+  const mat = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.004, 0.24),
+    new THREE.MeshStandardMaterial({ color: 0x1d2a27, roughness: 0.95, metalness: 0 }));
+  mat.position.y = at.h + 0.002;
+  g.add(mat);
+
+  /* the boards lie flat, component side up, turned the way the showcase turns them */
+  const boards = [
+    { file: "boards/raspberry-pi-4b", size: 0.0853, turn: [0, 0, Math.PI], x: -0.1 },
+    { file: "boards/arduino-nano-every", size: 0.0455, turn: [-Math.PI / 2, 0, 0], x: 0.1 }
+  ];
+  boards.forEach((b) => {
+    loadProp(b.file, b.size).then((prop) => {
+      if (!prop) return;
+      prop.rotation.set(b.turn[0], b.turn[1], b.turn[2]);
+      const box = new THREE.Box3().setFromObject(prop);
+      const mid = box.getCenter(new THREE.Vector3());
+      prop.position.set(-mid.x, -box.min.y, -mid.z);
+      const seat = new THREE.Group();
+      seat.position.set(b.x, matTop, 0);
+      seat.add(prop);
+      g.add(seat);
+    });
+  });
+
+  /* the lead from the Pi's inner edge to the Nano's, rising 2.5 cm off the mat */
+  const lead = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.055, matTop + 0.01, 0),
+    new THREE.Vector3(-0.025, matTop + 0.025, 0.02),
+    new THREE.Vector3(0.04, matTop + 0.025, 0.02),
+    new THREE.Vector3(0.075, matTop + 0.01, 0)
+  ]);
+  g.add(new THREE.Mesh(
+    new THREE.TubeGeometry(lead, 32, 0.0025, 8, false),
+    new THREE.MeshStandardMaterial({ color: 0x46584f, roughness: 0.8, metalness: 0.1 })
+  ));
+  const pulse = new THREE.Mesh(new THREE.SphereGeometry(0.005, 12, 10), M.glow);
+  g.add(pulse);
+
+  /* the scope trace, 20 cm wide and 3 cm from low to high, 16 cm above the mat */
+  const BITS = 10, STEPS = 8, N = BITS * STEPS + 1;
+  const WIDE = 0.2, SWING = 0.015, traceY = matTop + 0.16;
+  const trace = new Float32Array(N * 3);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(trace, 3));
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: AMBER }));
+  line.position.y = traceY;
+  g.add(line);
+  const rail = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.PlaneGeometry(WIDE + 0.01, SWING * 2 + 0.012)),
+    new THREE.LineBasicMaterial({ color: 0x7f9189, transparent: true, opacity: 0.35 })
+  );
+  rail.position.y = traceY;
+  g.add(rail);
+
+  let word = 0b10110010, lastFrame = -1;
+  const draw = () => {
+    for (let i = 0; i < N; i++) {
+      const bit = Math.min(Math.floor(i / STEPS), BITS - 1);
+      const high = bit === 0 ? 0 : bit === 9 ? 1 : (word >> (bit - 1)) & 1;
+      trace[i * 3] = -WIDE / 2 + (i / (N - 1)) * WIDE;
+      trace[i * 3 + 1] = high ? SWING : -SWING;
+      trace[i * 3 + 2] = 0;
+    }
+    geo.attributes.position.needsUpdate = true;
+  };
+  draw();
+  pulse.position.copy(lead.getPointAt(0.3));
+  updaters.push((dt, t) => {
+    if (reduceMotion) return;
+    const nth = Math.floor(t * 0.35);
+    if (nth !== lastFrame) { lastFrame = nth; word = Math.floor(Math.random() * 256); draw(); }
+    pulse.position.copy(lead.getPointAt((t * 0.35) % 1));
+  });
+
   shadows(g);
   return g;
 }
 
-/* ------------------------------------------------------------------ build */
+/* ------------------------------------------------------ hardware showcase */
 
-/* ------------------------------------------------------ hardware cabinet */
-
-/* Every board and sensor from the owner's CAD archives, on lit shelves behind
-   the skills plinth, each with a name plate. The structure is built at once;
-   the models (about 20 MB together) load the first time Skills is visited. */
+/* Every board and sensor from the owner's CAD archives at its true size, on small
+   stands in a lit wall case behind the skills plinth, each with a name plate.
+   size is the model's largest dimension in metres, worked out from the board's
+   real length; turn is the rotation that puts the component side up (the CAD
+   exports do not agree on an up axis); upright models stand in a foam block
+   facing the room instead of lying on an angled stand. The case is built at once;
+   the models (about 12 MB together) load the first time Skills is visited. */
 const HARDWARE = [
   [
-    ["boards/arduino-uno", "Arduino Uno"],
-    ["boards/arduino-mega-2560", "Arduino Mega 2560"],
-    ["boards/arduino-nano-every", "Arduino Nano Every"],
-    ["boards/esp32-nodemcu", "ESP32 NodeMCU"],
-    ["boards/raspberry-pi-5", "Raspberry Pi 5"],
-    ["boards/raspberry-pi-4b", "Raspberry Pi 4B"],
-    ["boards/raspberry-pi-zero", "Raspberry Pi Zero"]
+    { file: "boards/arduino-uno", label: "Arduino Uno", size: 0.073, turn: [0, Math.PI / 2, 0] },
+    { file: "boards/arduino-mega-2560", label: "Arduino Mega 2560", size: 0.108, turn: [0, Math.PI / 2, 0] },
+    { file: "boards/arduino-nano-every", label: "Arduino Nano Every", size: 0.0455, turn: [-Math.PI / 2, 0, 0] },
+    { file: "boards/esp32-nodemcu", label: "ESP32 NodeMCU", size: 0.0523 },
+    { file: "boards/raspberry-pi-5", label: "Raspberry Pi 5", size: 0.0865, turn: [-Math.PI / 2, 0, 0] },
+    { file: "boards/raspberry-pi-4b", label: "Raspberry Pi 4B", size: 0.0853, turn: [0, 0, Math.PI] },
+    { file: "boards/raspberry-pi-zero", label: "Raspberry Pi Zero", size: 0.065 }
   ],
   [
-    ["sensors/hc-sr04-ultrasonic", "HC-SR04 ultrasonic"],
-    ["sensors/pir-motion", "PIR motion"],
-    ["sensors/ir-sensor", "IR obstacle"],
-    ["sensors/dht11-temperature-humidity", "DHT11 temp and humidity"],
-    ["sensors/imu-accelerometer-gyroscope", "IMU accel and gyro"]
+    { file: "sensors/hc-sr04-ultrasonic", label: "HC-SR04 ultrasonic", size: 0.045, upright: true },
+    { file: "sensors/pir-motion", label: "PIR motion", size: 0.032, upright: true },
+    { file: "sensors/ir-sensor", label: "IR obstacle", size: 0.0378 },
+    { file: "sensors/dht11-temperature-humidity", label: "DHT11 temp and humidity", size: 0.025, upright: true },
+    { file: "sensors/imu-accelerometer-gyroscope", label: "IMU accel and gyro", size: 0.021, upright: true }
   ],
   [
-    ["sensors/mq135-air-quality", "MQ-135 air quality"],
-    ["sensors/mq2-gas-smoke", "MQ-2 gas and smoke"],
-    ["sensors/ldr-light-sensor", "LDR light"],
-    ["sensors/rain-sensor", "Rain"],
-    ["sensors/touch-sensor", "Capacitive touch"]
+    { file: "sensors/mq135-air-quality", label: "MQ-135 air quality", size: 0.0376, upright: true },
+    { file: "sensors/mq2-gas-smoke", label: "MQ-2 gas and smoke", size: 0.0355, turn: [0, 0, Math.PI] },
+    { file: "sensors/ldr-light-sensor", label: "LDR light", size: 0.039, turn: [0, 0, Math.PI] },
+    { file: "sensors/rain-sensor", label: "Rain", size: 0.1047, turn: [0, Math.PI / 2, Math.PI] },
+    { file: "sensors/touch-sensor", label: "Capacitive touch", size: 0.0241 }
   ]
 ];
 /* phones get one of each kind rather than 17 downloads */
 const PHONE_SET = new Set(["boards/arduino-uno", "boards/esp32-nodemcu", "boards/raspberry-pi-5", "sensors/hc-sr04-ultrasonic", "sensors/pir-motion", "sensors/dht11-temperature-humidity"]);
+/* flat models lean back 52 degrees so the component side faces a standing reader */
+const TILT = 0.9;
 
+/* a name plate 10 cm wide */
 function nameplate(text) {
   const c = document.createElement("canvas");
-  c.width = 512; c.height = 80;
+  c.width = 512; c.height = 112;
   const ctx = c.getContext("2d");
-  ctx.fillStyle = "#0d1715"; ctx.fillRect(0, 0, 512, 80);
-  ctx.fillStyle = "#f0a31e"; ctx.fillRect(0, 76, 512, 4);
-  ctx.fillStyle = "#e3eae4"; ctx.font = "500 34px 'IBM Plex Mono', monospace";
+  ctx.fillStyle = "#0d1715"; ctx.fillRect(0, 0, 512, 112);
+  ctx.fillStyle = "#f0a31e"; ctx.fillRect(0, 106, 512, 6);
+  ctx.fillStyle = "#e3eae4"; ctx.font = "500 44px 'Share Tech Mono', monospace";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(text, 256, 40, 490);
+  ctx.fillText(text, 256, 54, 490);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  return new THREE.Mesh(new THREE.PlaneGeometry(1.25, 0.2), new THREE.MeshBasicMaterial({ map: t, toneMapped: false }));
+  return new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.1 * (112 / 512)), new THREE.MeshBasicMaterial({ map: t, toneMapped: false }));
 }
 
-function cabinet(parent, updaters, reduceMotion) {
+function showcase(parent) {
+  const spec = L.LANDMARKS.skills.showcase;
+  const { w: W, h: H, d: D } = spec;
   const g = new THREE.Group();
-  g.position.set(0, 1.0, -6.2);
+  g.position.set(0, L.PAD_TOP, spec.z);
   parent.add(g);
 
-  const W = 11.4, H = 4.9, D = 1.3;
+  /* a wall case 2.4 m wide and 2 m tall: a closed cupboard to 90 cm, then open
+     shelves at 0.9, 1.3 and 1.7 m, each lit from under the shelf above */
   const body = new THREE.MeshStandardMaterial({ color: 0x1a2320, roughness: 0.85 });
-  const back = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.12), body);
-  back.position.set(0, H / 2, -D / 2);
+  const standMat = new THREE.MeshStandardMaterial({ color: 0x101615, roughness: 0.75, metalness: 0.05 });
+  const back = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.02), body);
+  back.position.set(0, H / 2, -D / 2 + 0.01);
   g.add(back);
-  for (const x of [-W / 2, W / 2]) {
-    const side = new THREE.Mesh(new THREE.BoxGeometry(0.14, H, D), body);
-    side.position.set(x, H / 2, 0);
-    g.add(side);
+  for (const side of [-1, 1]) {
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(0.03, H, D), body);
+    panel.position.set(side * (W / 2 - 0.015), H / 2, 0);
+    g.add(panel);
   }
-  const top = new THREE.Mesh(new THREE.BoxGeometry(W + 0.14, 0.16, D), body);
-  top.position.y = H;
-  g.add(top);
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(W, 0.04, D), body);
+  lid.position.y = H - 0.02;
+  g.add(lid);
+  const low = Math.min(...spec.shelves);
+  const cupboard = new THREE.Mesh(new THREE.BoxGeometry(W - 0.06, low - 0.018, D), body);
+  cupboard.position.y = (low - 0.018) / 2;
+  g.add(cupboard);
 
-  const shelfY = [3.55, 2.15, 0.75];
   const strip = new THREE.MeshBasicMaterial({ color: AMBER });
-  shelfY.forEach((y) => {
-    const plank = new THREE.Mesh(new THREE.BoxGeometry(W - 0.14, 0.08, D - 0.1), M.wood);
-    plank.position.set(0, y, 0);
+  const ceilings = [...spec.shelves.map((y) => y - 0.018), H - 0.04];
+  spec.shelves.forEach((y) => {
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(W - 0.06, 0.018, D - 0.04), M.wood);
+    plank.position.set(0, y - 0.009, 0);
     g.add(plank);
-    const led = new THREE.Mesh(new THREE.BoxGeometry(W - 0.3, 0.02, 0.03), strip);
-    led.position.set(0, y + 1.28, D / 2 - 0.12);
+    const above = Math.min(...ceilings.filter((c) => c > y + 0.01));
+    const led = new THREE.Mesh(new THREE.BoxGeometry(W - 0.1, 0.006, 0.012), strip);
+    led.position.set(0, above - 0.004, D / 2 - 0.05);
     g.add(led);
   });
-  const glow = new THREE.PointLight(0xffe3b8, 12, 9, 2);
-  glow.position.set(0, 3.2, 2.2);
+  const glow = new THREE.PointLight(0xffe3b8, 0.9, 2.4, 2);
+  glow.position.set(0, 1.45, 0.6);
   g.add(glow);
   shadows(g);
 
   const slots = [];
   HARDWARE.forEach((row, r) => {
-    const step = (W - 1.2) / row.length;
-    row.forEach(([file, label], i) => {
-      const x = -W / 2 + 0.6 + step * (i + 0.5);
-      const plate = nameplate(label);
-      plate.position.set(x, shelfY[r] + 0.05, D / 2 - 0.01);
-      plate.rotation.x = -0.25;
+    const span = W - 0.12, step = span / row.length, y = spec.shelves[r];
+    row.forEach((item, i) => {
+      const x = -span / 2 + step * (i + 0.5);
+      const plate = nameplate(item.label);
+      plate.position.set(x, y + 0.012, D / 2 - 0.045);
+      plate.rotation.x = -0.6;
       g.add(plate);
-      slots.push({ file, label, x, y: shelfY[r] + 0.04, size: r === 0 ? Math.min(1.3, step * 0.86) : 0.95, board: r === 0 });
+      /* where the model's middle will be, refined once it has loaded */
+      slots.push({ ...item, x, y, centre: new THREE.Vector3(x, y + (item.upright ? 0.02 : 0.03), 0) });
     });
   });
 
+  let stops = null;
   const loadSlot = (s, k) => {
     if (s.requested) return;
     s.requested = true;
     loadProp(s.file, s.size).then((prop) => {
       if (!prop) return;
-      prop.position.set(s.x, s.y, -0.05);
-      /* boards lean back toward the room so the silkscreen reads; sensors turn slowly */
-      if (s.board) prop.rotation.x = 0.85;
-      else updaters.push((dt, t) => { if (!reduceMotion) prop.rotation.y = Math.sin(t * 0.5 + k) * 0.6; });
-      g.add(prop);
+      if (s.turn) prop.rotation.set(s.turn[0], s.turn[1], s.turn[2]);
+      /* re-seat the turned model: middle on x and z, bottom on y = 0 */
+      const box = new THREE.Box3().setFromObject(prop);
+      const size = box.getSize(new THREE.Vector3()), mid = box.getCenter(new THREE.Vector3());
+      prop.position.set(-mid.x, -box.min.y, -mid.z);
+      const mount = new THREE.Group();
+      if (s.upright) {
+        /* a foam block the pins push into, the board leaning back a touch */
+        const foam = new THREE.Mesh(new THREE.BoxGeometry(size.x + 0.012, 0.008, size.z + 0.012), standMat);
+        foam.position.set(s.x, s.y + 0.004, 0);
+        g.add(foam);
+        mount.position.set(s.x, s.y + 0.006, 0);
+        mount.rotation.x = -0.12;
+        s.centre.set(s.x, s.y + 0.006 + size.y / 2, 0);
+      } else {
+        /* an angled stand: a plate at TILT with its front edge on the shelf, a leg behind */
+        const sw = size.x + 0.016, sd = size.z + 0.016;
+        const sinT = Math.sin(TILT), cosT = Math.cos(TILT);
+        mount.position.set(s.x, s.y + (sd / 2) * sinT + 0.004, 0);
+        mount.rotation.x = TILT;
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(sw, 0.004, sd), standMat);
+        plate.position.y = -0.002;
+        mount.add(plate);
+        const legH = sd * sinT + 0.004;
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(sw * 0.5, legH, 0.004), standMat);
+        leg.position.set(s.x, s.y + legH / 2, -(sd / 2) * cosT);
+        g.add(leg);
+        s.centre.set(s.x, s.y + (sd / 2) * sinT + 0.004 + (size.y / 2) * cosT, (size.y / 2) * sinT);
+      }
+      mount.add(prop);
+      g.add(mount);
+      if (stops) stops[k].focus.copy(g.localToWorld(s.centre.clone()));
     });
   };
-  let stops = null;
+
   return {
     load() {
       slots.forEach((s, k) => { if (!coarseDevice || PHONE_SET.has(s.file)) loadSlot(s, k); });
     },
     /* one model on demand, for the close-up; phones start with only six */
     loadOne(i) { if (slots[i]) loadSlot(slots[i], i); },
-    /* where the camera stands for each model: square in front of its shelf, a little above */
+    /* Where the close-up camera stands for each model, as the world uses it:
+       eye = focus + dir * dist, then raised by lift, looking at focus. The eye is
+       20 to 35 cm from the model, square in front of the case; for a model on an
+       angled stand it rises to look down its tilt. */
     stops() {
       if (!stops) {
-        g.updateMatrixWorld(true);
-        const front = new THREE.Vector3(0, 0, 1).applyQuaternion(g.getWorldQuaternion(new THREE.Quaternion()));
-        stops = slots.map((s) => ({
-          label: s.label,
-          focus: g.localToWorld(new THREE.Vector3(s.x, s.y + (s.board ? 0.42 : 0.45), 0)),
-          dir: front.clone(),
-          dist: s.board ? 3.1 : 2.7,
-          lift: s.board ? -0.55 : -0.8
-        }));
+        g.updateWorldMatrix(true, false);
+        const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(g.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize();
+        stops = slots.map((s) => {
+          const dist = s.upright ? clamp(s.size * 5.5, 0.18, 0.3) : clamp(s.size * 3, 0.2, 0.35);
+          return { label: s.label, focus: g.localToWorld(s.centre.clone()), dir: dir.clone(), dist, lift: dist * (s.upright ? 0.12 : 0.5) };
+        });
       }
       return stops;
     }
   };
 }
 
+/* ------------------------------------------------------------------ build */
+
 export function buildIsland(scene, { reduceMotion }) {
   const updaters = [];
   const frames = [];
+  const LS = L.LANDMARKS;
 
   terrain(scene);
-  workbenchDesk(scene);
 
-  const research = tower(scene, reduceMotion, updaters);
+  const research = tower(scene, updaters);
   const press = stage(scene, reduceMotion, updaters, frames);
-  const builds = lab(scene, reduceMotion, updaters);
+  const builds = lab(scene, updaters);
   const creds = hall(scene, frames);
   const skill = skills(scene, reduceMotion, updaters);
-  const tools = shed(scene, reduceMotion, updaters, frames);
+  const tools = shed(scene, updaters, frames);
   const contact = mast(scene, reduceMotion, updaters);
-  aboutMarker(scene, reduceMotion, updaters);
+  serialLink(scene, reduceMotion, updaters);
 
-  const hardware = cabinet(skill.group, updaters, reduceMotion);
+  const hardware = showcase(skill.group);
 
+  /* Poly Haven props at their true size: the size given is the model's largest dimension */
   const place = (group, name, size, x, y, z, ry = 0) =>
     loadProp(name, size).then((prop) => {
       if (!prop) return;
@@ -687,69 +905,51 @@ export function buildIsland(scene, { reduceMotion }) {
       prop.rotation.y = ry;
       group.add(prop);
     });
-  place(tools.group, "desk_lamp_arm_01", 1.3, 1.45, 1.06, -0.75, -0.6);
-  place(tools.group, "classic_laptop", 0.85, -1.15, 1.06, 0.05, 0.25);
-  place(tools.group, "metal_toolbox", 1.0, -2.05, 0.2, 1.05, 0.3);
-  place(builds.group, "industrial_microscope", 0.95, -3.9, 1.06, -0.25, 0.4);
-  place(press.group, "Television_01", 1.2, 3.4, 0.8, 0.7, -0.35);
+  const shedTop = LS.shed.floor.top + L.TABLE_TOP, st = LS.shed.table;
+  place(tools.group, "desk_lamp_arm_01", 0.55, st.x - 0.95, shedTop, st.z - 0.25, -0.6);   // 55 cm tall
+  place(tools.group, "classic_laptop", 0.34, st.x - 0.72, shedTop, st.z + 0.15, 0.25);     // 34 cm wide
+  place(tools.group, "metal_toolbox", 0.45, LS.shed.toolbox.x, LS.shed.floor.top, LS.shed.toolbox.z, 0.3);
+  const labTop = LS.lab.floor.top + L.TABLE_TOP, lb = LS.lab.benches;
+  /* the microscope is longer than it is tall; 48 cm long stands it about 45 cm high */
+  place(builds.group, "industrial_microscope", 0.48, lb.xs[0] - 0.72, labTop, lb.z + 0.05, 0.4);
+  place(press.group, "Television_01", 0.6, 3.4, LS.stage.deck.h, 0.7, -0.35);           // 60 cm wide, as authored
+  const ped = LS.hall.pedestal;
   const board = new THREE.Group();
-  board.position.set(6.6, 0.3, 1.6);
+  board.position.set(ped.x, LS.hall.floor.top, ped.z);
   creds.group.add(board);
-  board.add(plinth(0.7, 1.0));
-  place(board, "circuit_board", 1.1, 0, 1.02, 0, 0.3);
+  board.add(plinth(ped.r, ped.h));
+  place(board, "circuit_board", 0.25, 0, ped.h + 0.005, 0, 0.3);
 
-  /* the arm itself, converted from its CAD export, turning on a plinth in the lab */
-  loadProp("robotics/robotic-arm", 1.7).then((arm) => {
+  /* the arm itself, converted from its CAD export, 50 cm long, turning on its plinth in the lab */
+  loadProp("robotics/robotic-arm", 0.5).then((arm) => {
     if (!arm) return;
-    const turntable = new THREE.Group();
-    turntable.position.set(3.7, 0.2, 1.7);
-    turntable.add(plinth(0.75, 0.5));
-    arm.position.y = 0.5;
-    turntable.add(arm);
-    builds.group.add(turntable);
+    arm.position.y = LS.lab.turntable.h;
+    builds.turntable.add(arm);
     updaters.push((dt) => { if (!reduceMotion) arm.rotation.y += dt * 0.35; });
   });
-  place(scene, "desk_lamp_arm_01", 1.6, 2.3, 0, -1.9, -2.3);
-  /* the campus: a plaza round the workbench, and a bus of traces out to each zone,
-     ending at the front edge of the building's pad */
-  plaza(scene, GROUND, 7.5);
+
+  /* the campus: a plaza round the workbench, a bus of traces out to each zone ending
+     at the front edge of the building's pad, zone names, planters and street lights */
+  plaza(scene, GROUND, L.PLAZA_RADIUS);
   updaters.push(rimTiles(scene, GROUND, reduceMotion));
-  const buses = [
-    [[7.4, -1.2], [10.5, -1.2], [10.5, -6], [12.2, -6]],        // work: the stage
-    [[7.4, 1.2], [10.5, 1.2], [10.5, 7], [11.3, 7]],            // work: the lab
-    [[0, 7.5], [0, 12.5]],                                      // credentials hall
-    [[-7.23, 2], [-9.2, 2]],                                    // skills lab
-    [[-7.0, -2.7], [-8.2, -2.7], [-8.2, -9.2], [-10.0, -9.2]],  // toolchain
-    [[-2.2, -7.2], [-2.2, -11.4], [-7, -11.4], [-7, -12.3]],    // research tower
-    [[2.2, -7.2], [2.2, -11.4], [8, -11.4], [8, -13.3]]         // contact mast
-  ];
-  buses.forEach((b) => { const t = traces(scene, b, GROUND, reduceMotion); updaters.push(t.update); });
-
-  /* zone names painted just inside the plaza rim, where each walkway leaves */
-  groundLabel(scene, "WORK", 6.1, 0, GROUND, 1, 0);
-  groundLabel(scene, "CREDENTIALS", 0, 6.1, GROUND, 0, 1);
-  groundLabel(scene, "SKILLS", -6.1, 1.7, GROUND, -1, 0);
-  groundLabel(scene, "TOOLCHAIN", -5.2, -3.3, GROUND, -0.85, -0.53);
-  groundLabel(scene, "RESEARCH", -2.4, -6.0, GROUND, 0, -1);
-  groundLabel(scene, "CONTACT", 2.4, -6.0, GROUND, 0, -1);
-
-  /* distance on the ground from (x, z) to the segment a-b */
-  const segDist = (x, z, [ax, az], [bx, bz]) => {
-    const dx = bx - ax, dz = bz - az;
-    const k = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1e-6)));
-    return Math.hypot(x - ax - dx * k, z - az - dz * k);
-  };
+  L.BUSES.forEach((b) => { const t = traces(scene, b, GROUND, reduceMotion); updaters.push(t.update); });
+  L.LABELS.forEach(([text, x, z, ux, uz]) => groundLabel(scene, text, x, z, GROUND, ux, uz));
+  L.PLANTERS.forEach(([x, z]) => planter(scene, x, z, GROUND));
+  L.LAMPS.forEach(([x, z, ry]) => lamp(scene, x, z, GROUND, ry));
 
   /* world-space focus for each place */
   const toWorld = (l) => l.group.localToWorld(l.focus.clone());
   scene.updateMatrixWorld(true);
 
-  const benchHit = new THREE.Mesh(new THREE.BoxGeometry(8.6, 3, 5.2), M.hit);
-  benchHit.position.set(-1.1, 1, 0);
+  /* a box round the desk and chair, so clicking the workbench goes there */
+  const bh = L.BENCH.hit;
+  const benchHit = new THREE.Mesh(new THREE.BoxGeometry(bh.w, bh.h, bh.d), M.hit);
+  benchHit.position.set(bh.x, GROUND + bh.h / 2, bh.z);
   scene.add(benchHit);
 
+  const bf = L.BENCH.focus;
   const places = [
-    { key: "bench", panel: "#about", label: "The workbench", focus: new THREE.Vector3(-0.6, 0.9, 0), dist: 7.5, lift: 2.2, dir: new THREE.Vector3(0.55, 0, 1), hits: [benchHit] },
+    { key: "bench", panel: "#about", label: "The workbench", focus: new THREE.Vector3(bf.x, GROUND + bf.y, bf.z), dist: L.BENCH.dist, lift: L.BENCH.lift, dir: new THREE.Vector3(...L.BENCH.dir).normalize(), hits: [benchHit] },
     { key: "research", panel: "#research", label: "Research tower", group: research.group, focus: toWorld(research), dist: research.dist, lift: research.lift, hits: research.hits },
     { key: "stage", panel: "#work", anchor: "#work-robonari", label: "Bheenmal stage", group: press.group, focus: toWorld(press), dist: press.dist, lift: press.lift, hits: press.hits },
     { key: "lab", panel: "#work", anchor: "#work-attendance", label: "Robotics lab", group: builds.group, focus: toWorld(builds), dist: builds.dist, lift: builds.lift, hits: builds.hits },
@@ -759,40 +959,39 @@ export function buildIsland(scene, { reduceMotion }) {
     { key: "mast", panel: "#contact", label: "Say hello", group: contact.group, focus: toWorld(contact), dist: contact.dist, lift: contact.lift, hits: contact.hits }
   ];
 
-  /* every building faces the plaza, so the camera arrives square in front of it */
+  /* ---------------------------------------------------- where the hacker can walk
+     Colliders, platforms, zones and doors come from layout.js. Standing in a zone
+     opens that place's panel; the door is just in front of the pad, facing in,
+     marked by a glowing ring half a metre across the radius. */
+  const ringMat = () => new THREE.MeshBasicMaterial({ color: 0x9ad9ee, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide });
   places.forEach((p) => {
+    /* every building faces the plaza, so the camera arrives square in front of it */
     if (!p.dir) p.dir = new THREE.Vector3(0, 0, 1).applyQuaternion(p.group.quaternion);
     p.hits.forEach((h) => { h.userData.place = p.key; });
+    p.zone = { ...L.ZONES[p.key] };
+    p.spawn = { ...L.SPAWNS[p.key] };
+    p.short = L.SHORT[p.key];
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.5, 48), ringMat());
+    ring.rotation.x = -Math.PI / 2;
+    /* 8 cm up, above the walkway traces (top 5.75 cm) and their vias (7.2 cm) that
+       run under several doors, so the lanes never cut the ring */
+    ring.position.set(p.spawn.x, GROUND + L.heightAt(p.spawn.x, p.spawn.z) + 0.08, p.spawn.z);
+    scene.add(ring);
+    p.beacon = ring;
   });
 
-  /* Planters and street lights, kept out of every camera's line of sight. The lines
-     follow world.js desired(): on a desktop the eye stands dist away and both ends
-     shift right by 0.3 dist; on a phone it stands 1.25 dist away with no shift. */
-  const sightlines = places.flatMap((p) => {
-    const f = [p.focus.x, p.focus.z];
-    const d = new THREE.Vector2(p.dir.x, p.dir.z).normalize();
-    const right = [d.y, -d.x];
-    const desk = [f[0] + d.x * p.dist + right[0] * p.dist * 0.3, f[1] + d.y * p.dist + right[1] * p.dist * 0.3];
-    const phone = [f[0] + d.x * p.dist * 1.25, f[1] + d.y * p.dist * 1.25];
-    return [[desk, [f[0] + right[0] * p.dist * 0.3, f[1] + right[1] * p.dist * 0.3]], [phone, f]];
-  });
-  const inSight = (x, z, r) => sightlines.some(([a, b]) => segDist(x, z, a, b) < r);
-  const onBus = (x, z) => buses.some((b) => b.slice(1).some((q, i) => segDist(x, z, b[i], q) < 1.8));
-
-  const planterSpots = [[6.2, 6.2], [-6.2, 6.2], [6.3, -6.3], [-5.7, -6.0], [10.2, 13.4], [-10.2, 13.4], [13, -13.5], [-13.5, 12.5], [-14, -16.5]]
-    .filter(([x, z]) => !inSight(x, z, 2.2) && !onBus(x, z));
-  planterSpots.forEach(([x, z]) => planter(scene, x, z, GROUND));
-  for (let a = 0; a < 360; a += 30) {
-    const r = (a * Math.PI) / 180, x = Math.cos(r) * 8.7, z = Math.sin(r) * 8.7;
-    if (!onBus(x, z) && !inSight(x, z, 1.6) && planterSpots.every(([px, pz]) => Math.hypot(x - px, z - pz) > 2)) {
-      lamp(scene, x, z, GROUND, Math.PI - r);
-    }
-  }
+  let activeKey = null;
 
   return {
     places,
     frames,
     skillItems: skill.ring.items,
+    colliders: L.COLLIDERS.map((k) => ({ ...k })),
+    platforms: L.PLATFORMS.map((k) => ({ ...k })),
+    heightAt: (x, z) => L.heightAt(x, z),
+    /* the hacker starts on the plaza, facing the workbench */
+    start: { ...L.START },
+    setActive(key) { activeKey = key; },
     hardwareStops: () => hardware.stops(),
     showHardware: (i) => hardware.loadOne(i),
     /* called by the world whenever a place opens */
@@ -801,6 +1000,12 @@ export function buildIsland(scene, { reduceMotion }) {
     },
     update(dt, t) {
       updaters.forEach((u) => u(dt, t));
+      /* entry rings breathe in cyan; the open building's ring holds steady in amber */
+      for (const p of places) {
+        const on = p.key === activeKey;
+        p.beacon.material.color.setHex(on ? 0xffb43d : 0x9ad9ee);
+        p.beacon.material.opacity = on ? 0.85 : 0.35 + (reduceMotion ? 0.1 : 0.2 * (0.5 + 0.5 * Math.sin(t * 2 + p.spawn.x)));
+      }
     }
   };
 }

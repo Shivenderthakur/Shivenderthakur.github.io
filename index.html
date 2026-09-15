@@ -8,7 +8,7 @@
 <meta name="description" content="CTO at CoShot. I run seven-day research sprints that carry an unfamiliar domain from first reading to working hardware. Industrial, manufacturing, IoT and AI.">
 <meta name="author" content="Shivender Singh Thakur">
 <meta name="robots" content="index, follow, max-image-preview:large">
-<meta name="theme-color" content="#070d0c">
+<meta name="theme-color" content="#101c26">
 <link rel="canonical" href="https://shivenderthakur.github.io/">
 
 <meta property="og:type" content="profile">
@@ -35,7 +35,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230E1917'/%3E%3Cpath d='M8 24V13l8-5 8 5v11' fill='none' stroke='%23F0A31E' stroke-width='2.4'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Share+Tech+Mono&family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 
 <script type="application/ld+json">
@@ -126,8 +126,8 @@
 </script>
 </head>
 <body>
-<canvas id="world" aria-label="A floating tech campus: a workbench with a robotic arm on a plaza at its centre, and a building for each part of the portfolio" role="img"></canvas>
-<noscript><p class="noscript">This portfolio is a 3D island you explore. Without JavaScript it reads as a normal page below.</p></noscript>
+<canvas id="world" tabindex="-1" aria-label="A tech campus at dusk that you walk around as a hooded hacker. A workbench with a robotic arm stands on the central plaza, with a building for each part of the portfolio around it." role="img"></canvas>
+<noscript><p class="noscript">This portfolio is a 3D campus you walk around. Without JavaScript it reads as a normal page below.</p></noscript>
 
 <a class="skip" href="#work">Skip to the work</a>
 
@@ -136,7 +136,7 @@
     <span class="wordmark__name">Shivender Singh Thakur</span>
     <span class="wordmark__role">Chief Technology Officer, CoShot</span>
   </a>
-  <nav aria-label="Places on the island">
+  <nav aria-label="Buildings on the campus">
     <a href="#about" data-place="bench">Workbench</a>
     <a href="#research" data-place="research">Research</a>
     <a href="#work" data-place="stage">Work</a>
@@ -147,12 +147,38 @@
   </nav>
 </header>
 
+<div class="hud" id="hud" aria-hidden="true">
+  <div class="compass"><div class="compass__strip" id="compass-strip"></div></div>
+  <canvas class="radar" id="radar" width="176" height="176"></canvas>
+  <p class="objective" id="objective">Walk into a building to open it</p>
+  <p class="controls"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to walk, <kbd>Shift</kbd> to run, drag to look around</p>
+</div>
+<div class="stick" id="stick" aria-hidden="true" hidden><span class="stick__knob"></span></div>
+
 <div class="closeup" id="closeup" role="group" aria-label="Hardware close-up">
   <button type="button" class="closeup__enter" id="closeup-enter">Look closer</button>
   <button type="button" id="closeup-prev" aria-label="Previous board or sensor" hidden>&larr;</button>
   <span class="closeup__text"><b id="closeup-label">Hardware cabinet</b><span id="closeup-count"></span></span>
   <button type="button" id="closeup-next" aria-label="Next board or sensor" hidden>&rarr;</button>
   <button type="button" id="closeup-exit" hidden>Back</button>
+</div>
+
+<div class="seat" id="seat" hidden>
+  <div class="seat__bar" role="group" aria-label="At the workbench">
+    <p class="seat__hint" id="seat-hint">Click the desk to point, the arm places the block there, or type help</p>
+    <div class="seat__actions">
+      <button type="button" id="seat-about" aria-pressed="false" aria-controls="about">About</button>
+      <button type="button" class="seat__stand" id="seat-stand">Stand up</button>
+    </div>
+  </div>
+  <div class="console" id="console" role="region" aria-label="Arm control console">
+    <div class="console__head"><b>armctl</b><span>help, status, place, home, reach, set, reset</span></div>
+    <ol class="console__log" id="console-log" role="log" aria-live="polite"></ol>
+    <form class="console__line" id="console-form" autocomplete="off">
+      <label class="console__prompt" for="console-input">armctl&gt;</label>
+      <input id="console-input" name="line" type="text" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="send" aria-describedby="seat-hint">
+    </form>
+  </div>
 </div>
 
 <main id="top">
@@ -169,7 +195,8 @@
         <a class="btn" href="https://www.linkedin.com/in/shivender-singh-thakur" rel="me noopener" target="_blank">LinkedIn</a>
         <a class="btn" href="https://github.com/Shivenderthakur" rel="me noopener" target="_blank">GitHub</a>
       </div>
-      <button class="btn btn--go" type="button" id="explore">Explore the island</button>
+      <button class="btn btn--go" type="button" id="explore">Enter the campus</button>
+      <p class="hero__keys">You play a hooded hacker. Walk with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys, or the thumb stick on a phone. Walk into a building to open that part of the portfolio. At the workbench the hacker sits down to operate the arm: click the desk and it sets the block there, or type commands into its console.</p>
     </div>
 
     
@@ -197,13 +224,14 @@
           <div><dt>Working volume</dt><dd id="rig-volume">&ndash;</dd></div>
         </dl>
         <button type="button" class="rig__reset" id="rig-reset">Reset</button>
-        <p class="rig__hint">Drag the block to move it anywhere in the dome, in mid-air too.
-        Drag the ring above it to slide it at that height. Drag empty space to walk round the arm.</p>
+        <p class="rig__hint">Click the desk and the arm carries the block there. Drag the block
+        to move it anywhere in the dome, in mid-air too, or the ring above it to slide it at that
+        height. Drag empty space to lean the view.</p>
       </div>
     </details>
 
     <button class="world-grab" id="world-grab" type="button" aria-pressed="false" hidden>Take control</button>
-    <p class="world-hint" id="world-hint">Drag to look around. Click a landmark to walk over to it.</p>
+    <p class="world-hint" id="world-hint">Walk into a building to open it. The menu at the top takes you straight to any of them.</p>
     <p class="place-label" id="place-label" aria-live="polite"></p>
   </section>
 
@@ -1002,7 +1030,7 @@
   </section>
   <div class="panel-bar" id="panel-bar" hidden>
     <button type="button" id="panel-prev" aria-label="Previous place">&larr;</button>
-    <button type="button" id="panel-close">Back to the island</button>
+    <button type="button" id="panel-close">Close</button>
     <button type="button" id="panel-next" aria-label="Next place">&rarr;</button>
   </div>
 </main>

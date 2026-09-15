@@ -1,0 +1,23 @@
+{
+  "height": 1.75,
+  "walkSpeed": 1.1591,
+  "runSpeed": 3.1298,
+  "seatHeight": 0.46,
+  "keyboardReach": 0.46,
+  "clips": [
+    "Idle",
+    "Walk",
+    "Run",
+    "Point",
+    "Sit",
+    "SitType"
+  ],
+  "clipSeconds": {
+    "Idle": 4,
+    "Walk": 1.0667,
+    "Run": 0.7,
+    "Point": 2,
+    "Sit": 4,
+    "SitType": 2
+  }
+}

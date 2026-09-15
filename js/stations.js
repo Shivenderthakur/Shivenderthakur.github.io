@@ -855,7 +855,7 @@ function makeTerminal() {
     for (let y = 0; y < 288; y += 3) ctx.fillRect(0, y, 512, 1);
     ctx.globalAlpha = 1;
 
-    ctx.font = "16px 'IBM Plex Mono', ui-monospace, monospace";
+    ctx.font = "16px 'Share Tech Mono', ui-monospace, monospace";
     ctx.textBaseline = "top";
     lines.forEach((line, i) => {
       ctx.fillStyle = line.startsWith("$") ? "#d7e2da" : "#7d9086";

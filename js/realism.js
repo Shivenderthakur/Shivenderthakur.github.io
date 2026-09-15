@@ -71,6 +71,11 @@ export function pbr(name, { repeat = [1, 1], color = 0xffffff, metalness = 0, ro
 const gltf = new GLTFLoader();
 gltf.setMeshoptDecoder(MeshoptDecoder);
 
+/* Load a glTF as it is, animations included (the hacker needs its clips). */
+export function loadGLTF(url) {
+  return new Promise((resolve) => gltf.load(url, resolve, undefined, (err) => { console.warn(url, err); resolve(null); }));
+}
+
 /* Load a photoreal prop and fit it: its largest dimension becomes `size`,
    it is centred on x and z, and it stands on y = 0. */
 export function loadProp(name, size) {
@@ -105,13 +110,23 @@ export function makeComposer(renderer, scene, camera, { coarse }) {
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
 
+  /* The occlusion radius and thickness are in world units, and the world is in
+     metres. Walking, a 35 cm radius darkens the ground where it meets walls,
+     planters and the hacker's feet. At the bench the arm reaches 23 cm and the
+     block is 2.4 cm across, so a radius that size would shade the whole desk;
+     6 cm keeps the contact shadow under the block and the arm's joints. The
+     default sits between the two so the pass is sensible before either is
+     chosen. */
+  const AO_NEAR = { radius: 0.06, thickness: 0.12 };
+  const AO_FAR = { radius: 0.35, thickness: 0.7 };
   let ao = null;
   if (!coarse) {
     ao = new GTAOPass(scene, camera, size.x, size.y);
-    ao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.4, thickness: 1.2, scale: 1 });
+    ao.updateGtaoMaterial({ radius: 0.1, distanceExponent: 1.4, thickness: 0.2, scale: 1 });
     ao.blendIntensity = 0.85;
     composer.addPass(ao);
   }
+  let aoNear = null;
 
   /* a high threshold: only true emitters (screens, LEDs, the beacon) bloom, never a lit scan */
   const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), coarse ? 0.28 : 0.35, 0.45, 0.97);
@@ -127,6 +142,13 @@ export function makeComposer(renderer, scene, camera, { coarse }) {
   return {
     passes: composer.passes,
     render: () => composer.render(),
+    /* near = true while seated at the bench or in a close-up, false while walking;
+       call it where the shadow span switches */
+    aoSpan(near) {
+      if (!ao || aoNear === near) return;
+      aoNear = near;
+      ao.updateGtaoMaterial(near ? AO_NEAR : AO_FAR);
+    },
     setSize(w, h) {
       composer.setSize(w, h);
       if (ao) ao.setSize(w, h);

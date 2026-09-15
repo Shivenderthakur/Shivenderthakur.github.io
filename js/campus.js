@@ -1,11 +1,17 @@
 /* The campus. Poured-concrete ground, a plaza round the workbench, lit pads under
-   the buildings, walkways drawn as buses of copper traces, planters, street lights
-   and glass curtain walls. Everything is built once; the only motion is a data
-   pulse along each walkway and the tiles floating off the rim. */
+   the buildings, walkways drawn as buses of copper traces, planters, street lights,
+   doors and glass curtain walls. Everything is built once; the only motion is a data
+   pulse along each walkway and the tiles floating off the rim.
+
+   Units are metres, sized for a reader 1.75 m tall: pads are 14 cm slabs, a walkway
+   of three lanes is about 1.8 m wide, planters stand 55 cm with a tree near 3 m,
+   street lights are 3.2 m, a door is 1 m by 2.1 m. Where things stand is decided
+   in layout.js, not here. */
 
 import * as THREE from "three";
 
 const AMBER = 0xf0a31e;
+const CYAN = 0x9ad9ee;
 
 function canvasTexture(size, draw, repeat) {
   const c = document.createElement("canvas");
@@ -58,14 +64,16 @@ export const MAT = {
   ground: new THREE.MeshStandardMaterial({ map: canvasTexture(512, slabs, 5), roughness: 0.93, metalness: 0.05 }),
   plaza: new THREE.MeshStandardMaterial({ map: canvasTexture(512, pavers, 3), roughness: 0.85, metalness: 0.08 }),
   pad: new THREE.MeshStandardMaterial({ color: 0x2a3331, roughness: 0.86, metalness: 0.1 }),
-  copper: new THREE.MeshStandardMaterial({ color: 0xb98a47, roughness: 0.4, metalness: 0.85, emissive: 0x3a2508, emissiveIntensity: 0.7 }),
-  via: new THREE.MeshStandardMaterial({ color: 0xd9ad62, roughness: 0.45, metalness: 0.9 }),
+  /* 2010s light lines rather than copper: graphite lanes lit from within */
+  copper: new THREE.MeshStandardMaterial({ color: 0x26343d, roughness: 0.45, metalness: 0.6, emissive: 0x2f8fb0, emissiveIntensity: 0.45 }),
+  via: new THREE.MeshStandardMaterial({ color: 0xb9dbe6, roughness: 0.35, metalness: 0.8 }),
   hole: new THREE.MeshBasicMaterial({ color: 0x050807 }),
   /* not too glossy: a near-mirror catching the key light blows past the bloom
      pass's half-float range and turns the whole frame black */
   glass: new THREE.MeshPhysicalMaterial({ color: 0x0c1a1d, roughness: 0.3, metalness: 0.3, clearcoat: 0.6, clearcoatRoughness: 0.28, envMapIntensity: 1.1 }),
   frame: new THREE.MeshStandardMaterial({ color: 0x46524f, roughness: 0.42, metalness: 0.85 }),
-  led: new THREE.MeshBasicMaterial({ color: AMBER }),
+  door: new THREE.MeshStandardMaterial({ color: 0x141c1e, roughness: 0.62, metalness: 0.35 }),
+  led: new THREE.MeshBasicMaterial({ color: CYAN }),
   concrete: new THREE.MeshStandardMaterial({ color: 0x59625f, roughness: 0.95 }),
   soil: new THREE.MeshStandardMaterial({ color: 0x1d1813, roughness: 1 }),
   bark: new THREE.MeshStandardMaterial({ color: 0x4a3b2c, roughness: 0.95 }),
@@ -231,8 +239,8 @@ export function groundLabel(scene, text, x, z, y, ux, uz, w = 4.2) {
   const c = document.createElement("canvas");
   c.width = 1024; c.height = 160;
   const ctx = c.getContext("2d");
-  ctx.fillStyle = "#f0a31e";
-  ctx.font = "600 104px Archivo, Arial, sans-serif";
+  ctx.fillStyle = "#9ad9ee";
+  ctx.font = "600 108px 'Titillium Web', Arial, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(text, 512, 84, 1000);
@@ -244,6 +252,32 @@ export function groundLabel(scene, text, x, z, y, ux, uz, w = 4.2) {
   m.position.set(x, y + 0.09, z);
   scene.add(m);
   return m;
+}
+
+/* A door a person fits through: a dark leaf with a narrow vision panel in a steel
+   frame, a pull handle and a light strip over the head. The group's origin is the
+   bottom centre of the doorway and the door faces +z. */
+export function door(w = 1.0, h = 2.1) {
+  const g = new THREE.Group();
+  const leaf = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.06), MAT.door);
+  leaf.position.y = h / 2;
+  const vision = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.7, 0.065), MAT.glass);
+  vision.position.set(-w / 2 + 0.22, 1.45, 0);
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.32, 0.04), MAT.via);
+  handle.position.set(w / 2 - 0.12, 1.02, 0.05);
+  g.add(leaf, vision, handle);
+  for (const side of [-1, 1]) {
+    const jamb = new THREE.Mesh(new THREE.BoxGeometry(0.07, h + 0.07, 0.12), MAT.frame);
+    jamb.position.set(side * (w / 2 + 0.035), (h + 0.07) / 2, 0);
+    g.add(jamb);
+  }
+  const head = new THREE.Mesh(new THREE.BoxGeometry(w + 0.14, 0.07, 0.12), MAT.frame);
+  head.position.y = h + 0.035;
+  const light = new THREE.Mesh(new THREE.BoxGeometry(w, 0.025, 0.04), MAT.led);
+  light.position.set(0, h + 0.12, 0.05);
+  g.add(head, light);
+  shade(g);
+  return g;
 }
 
 /* a glass wall between steel mullions, lit along the top */

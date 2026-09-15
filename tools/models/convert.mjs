@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 import { Document, NodeIO } from "@gltf-transform/core";
-import { EXTMeshoptCompression, KHRMeshQuantization } from "@gltf-transform/extensions";
+import { EXTMeshoptCompression, KHRMeshQuantization, EXTTextureWebP } from "@gltf-transform/extensions";
 import { dedup, weld, join, simplify, prune, normals, reorder, quantize, flatten } from "@gltf-transform/functions";
 import { MeshoptSimplifier, MeshoptEncoder } from "meshoptimizer";
 import sharp from "sharp";
@@ -52,7 +52,7 @@ const NICE = {
 };
 
 /* triangle budget per category, for a page that must still run on a phone */
-const BUDGET = { boards: 140000, sensors: 45000, robotics: 90000 };
+const BUDGET = { boards: 45000, sensors: 18000, robotics: 45000 };
 
 const BOARD_COLOUR = (slug) =>
   slug.includes("raspberry") ? [0.13, 0.43, 0.24] :
@@ -309,11 +309,12 @@ async function convert(dir) {
   for (const name of new Set(parts.map((p) => p.tex).filter(Boolean))) {
     const [r, g, b] = BOARD_COLOUR(slug).map((v) => Math.round(v * 255));
     const jpg = await sharp(path.join(dir, name))
-      .resize(cat === "boards" ? 2048 : 1024, cat === "boards" ? 2048 : 1024, { fit: "inside", withoutEnlargement: true })
+      .resize(cat === "boards" ? 1024 : 512, cat === "boards" ? 1024 : 512, { fit: "inside", withoutEnlargement: true })
       .flatten({ background: { r, g, b } })
-      .jpeg({ quality: 84, mozjpeg: true })
+      .webp({ quality: 82, effort: 6 })
       .toBuffer();
-    const texture = doc.createTexture(name).setImage(jpg).setMimeType("image/jpeg");
+    if (!doc.getRoot().listExtensionsUsed().some((e) => e.extensionName === "EXT_texture_webp")) doc.createExtension(EXTTextureWebP);
+    const texture = doc.createTexture(name).setImage(jpg).setMimeType("image/webp");
     texMats.set(name, doc.createMaterial("tex:" + name).setBaseColorTexture(texture).setMetallicFactor(0).setRoughnessFactor(0.72));
     console.log(`  texture ${name} -> ${parts.filter((p) => p.tex === name).length} part(s), ${(jpg.length / 1024).toFixed(0)} KB`);
   }
@@ -379,7 +380,7 @@ async function convert(dir) {
   const outDir = path.join(OUT, cat);
   fs.mkdirSync(outDir, { recursive: true });
   const outFile = path.join(outDir, `${file}.glb`);
-  const io = new NodeIO().registerExtensions([EXTMeshoptCompression, KHRMeshQuantization]).registerDependencies({ "meshopt.encoder": MeshoptEncoder });
+  const io = new NodeIO().registerExtensions([EXTMeshoptCompression, KHRMeshQuantization, EXTTextureWebP]).registerDependencies({ "meshopt.encoder": MeshoptEncoder });
   await io.write(outFile, doc);
 
   const entry = {
