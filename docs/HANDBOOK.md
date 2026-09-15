@@ -14,10 +14,12 @@ Read sections 1 and 2 before touching anything. Everything else is reference.
 2. **The owner pushes.** Commit and tag locally; do not push unless explicitly asked.
    The owner runs `git push && git push --tags`.
 3. **Every claim must be traceable** to `data/` (the LinkedIn export, gitignored), a press
-   clipping in `assets/press/`, or a public GitHub repo. Never invent numbers, clients,
-   results, dates or reasons presented as fact. If unsure, leave it out.
-4. **Do not publish**: the tax invoice or the Cognifyz offer letter (private documents),
-   LinkedIn post screenshots, or photos dominated by identifiable schoolchildren.
+   clipping in `assets/press/`, a certificate in `assets/certs/`, or a public GitHub repo.
+   Never invent numbers, clients, results, dates or reasons presented as fact. If unsure,
+   leave it out.
+4. **Do not publish**: the tax invoice or the Cognifyz offer letter (private documents), or
+   LinkedIn post screenshots. Photos of schoolchildren from the owner's own classes and
+   demonstrations are allowed; the owner lifted the earlier ban on 15 September 2026.
 5. **No vendor logos in 3D.** VS Code, JetBrains/PyCharm, Atom and Sublime marks may not be
    redrawn, extruded or restyled. Editors are named as plain text linking to the vendor.
    3D stands in with generic objects (terminal, keyboard, board, gear).
@@ -28,6 +30,10 @@ Read sections 1 and 2 before touching anything. Everything else is reference.
    converted GLBs in `assets/models/` are committed.
 8. **No build step.** Plain HTML, CSS and ES modules served as static files on GitHub Pages.
    Do not add bundlers, frameworks or npm dependencies to the site itself.
+9. **No browser use by agents.** Do not launch Chromium, Chrome, Playwright, Puppeteer or any
+   other browser, headless or visible, and do not run `tools/test/*.mjs` (they drive Chromium).
+   The owner serves the site and runs the tests; give them the commands. This holds until the
+   owner explicitly enables browser use in a session.
 
 ---
 
@@ -71,7 +77,7 @@ Tags are `vN.0.0`, commit subject `Version N`.
 # serve (module imports fail from file://)
 python3 -m http.server 8000          # then open http://127.0.0.1:8000/
 
-# headless checks (Chromium with a DevTools port)
+# headless checks (Chromium with a DevTools port); run by the owner, never by an agent (rule 9)
 chromium --headless=new --remote-debugging-port=9234 --user-data-dir=/tmp/cdp about:blank &
 node tools/test/v6.mjs 1440 900      # desktop: rig sliders, orbit, hall, gallery, lab
 node tools/test/v6.mjs 390 844       # phone
@@ -88,7 +94,8 @@ To stop a headless browser without killing your own shell:
 
 Release checklist:
 
-1. Run both viewport tests and the drag test; read the screenshots.
+1. The owner runs both viewport tests and the drag test and reads the screenshots. An agent
+   hands over the commands instead of running them (rule 9).
 2. Update the version paragraph at the top of `README.md` and the table in section 3 here.
 3. `git add -A && git commit -m "Version N" && git tag -a vN.0.0 -m "Version N"`.
 4. Confirm the message has no trailers: `git log -1 --format=%B`.
@@ -188,11 +195,14 @@ skill icon, or a landmark hit box.
 
 ### 5.5 Gallery viewer
 
-`openViewer(item, list)` where items are `{ full, src, alt }`. A 3D frame opens the list of
+`openViewer(item, list)` where items are `{ full, src, alt, video }`. A 3D frame opens the list of
 all frames with the same parent group; a link in a panel opens every link in its closest
 `.evidence` or `.wall`. Swipe (> 40 px horizontal), arrow keys, side buttons, thumbnails,
-backdrop click closes. Markup ids: `viewer`, `viewer-stage`, `viewer-img`, `viewer-prev`,
-`viewer-next`, `viewer-count`, `viewer-cap`, `viewer-thumbs`.
+backdrop click closes. A link with `data-video` is a clip: `full` is the MP4, `src` its
+poster thumbnail, and it plays in `viewer-video` with native controls. Drags and arrow keys
+that start on the clip are left to it, and closing the viewer pauses it. Markup ids:
+`viewer`, `viewer-stage`, `viewer-img`, `viewer-video`, `viewer-prev`, `viewer-next`,
+`viewer-count`, `viewer-cap`, `viewer-thumbs`.
 
 ### 5.6 Debug hook
 
@@ -256,8 +266,8 @@ HTML hooks: readout `#j1..#j4 #claw #hgt #mode`; tuning `#rig` with `#rig-base #
   `wood_table_worn`, `metal_plate`).
 - `frame(parent, {src, full, w, h, alt}, size, x, y, z, ry, frames)`: a framed picture; pushes
   its picture mesh into `frames` (clickable).
-- `honour(parent, item, x, y, z, frames)`: Hall of Fame frame (brass moulding, mount, lamp,
-  engraved plate with `item.title` and `item.sub`).
+- `honour(parent, item, x, y, z, frames, scale)`: Hall of Fame frame (brass moulding, mount,
+  lamp, engraved plate with `item.title` and `item.sub`), scaled as a whole.
 - `rig(name, scale, reduceMotion, updaters)`: a `RIGS` builder; its `update` joins the loop.
 - `plinth(r, h)`, `hitBox(group, w, h, d, y)`, `sign(text)`, `landmark(scene, key, x, z)`.
 - `loadProp(name, size)` (realism.js) loads `assets/models/<name>.glb`, scales its largest
@@ -326,9 +336,15 @@ Writing style, established with the owner:
   with Neha; Python, core AI, computer vision, maths [Navjyoti clipping].
 - Roles: CTO CoShot (Aug 2026–), CTO Basttl Media (Jun 2026–), DevOps Tech Lead EPIC
   (Oct 2024–Oct 2025), AI Systems and Robotics Intern RoboAI Hub (Nov 2023–Aug 2025), workshop
-  trainer (Jan 2025), ML intern Academor (Nov–Dec 2023). Education: B.E. CSE MBM University
-  2023–2026; Diploma CS Government Polytechnic College Jodhpur 2021–2023, grade 9.97.
-  Twenty-four certifications in total.
+  trainer (Jan 2025), ML intern Academor (Nov–Dec 2023), AI intern ITK (Jun–Aug 2023,
+  certificate). Education: B.E. CSE MBM University 2023–2026; Diploma CS Government
+  Polytechnic College Jodhpur 2021–2023, grade 9.97. Twenty-four certifications in total.
+- Certificates added 15 Sep 2026 (documents in `assets/certs/`): ITK (Ingenious Tech Key)
+  internship in AI, June to August 2023, signed by founder Narayan Jangid; RoboAI Hub
+  internship in robotics, 20 Nov 2023 to 30 Aug 2025; Cisco CCNAv7 Introduction to Networks,
+  15 May 2023; Cisco Networking Essentials, 12 Dec 2022; Academor machine learning internship
+  (with Flutura) and course (with Kshitij), 1 Nov to 31 Dec 2023, issued 13 Jan 2024; AWS
+  Community Builders and devTown seven-day Python and AI bootcamp (undated).
 - Public repos cited: `Enterprise-LLM-Chatbot-Admin`, `INDIAN_LABOR_LAW_ADVISOR`,
   `KINEMLINK_RELEASE`, `SAC-SmartArmController`, `StudyPods-v4.0`.
 
@@ -366,10 +382,16 @@ assets/
   tex/     <set>_diff.webp, _nor.webp, _rough.webp (Poly Haven, CC0)
   models/  Poly Haven props (flat), plus boards/ sensors/ robotics/ from the converter,
            and catalog.json
+  video/   demo clips: <slug>.mp4 (H.264, at most 1280 px, CRF 28, faststart) + <slug>.jpg poster
+  tmp/     gitignored drop folder for replacement pictures
 ```
 
 File names are kebab-case with a year where known. Every picture has a thumbnail and a
 `-full.jpg` for the viewer.
+
+**`docs/ASSETS.md` maps every picture**: an ID, what it shows, where the code uses it and the
+shape its thumbnail must keep. To swap in a better version, put it in `assets/tmp/` under its
+ID and run `python3 tools/assets/place.py` (dry run), then `--apply`.
 
 ### Recipes
 
@@ -377,8 +399,9 @@ File names are kebab-case with a year where known. Every picture has a thumbnail
 1. Put `x.jpg` (≈280 px wide) and `x-full.jpg` in `assets/certs/`.
 2. In `index.html`, add a `<figure>` inside `#experience .wall` (copy a neighbour; set real
    `width`/`height` and alt text).
-3. In `island.js hall()`, add `[slug, w, h, alt, TITLE, sub]` to `certs`. The wall holds 6 + 5;
-   for more, add a row or widen `W` and move `STEP`.
+3. In `island.js hall()`, add `[slug, w, h, alt, TITLE, sub]` to `certs`. They split into two
+   rows and shrink to fit the wall (18 frames at 0.79 scale today); past about 22 they get
+   hard to read, so add a row or widen `W`.
 
 **Add a work entry**: copy an `<article class="entry">` in `#work`, give it an id, follow the
 constraint → steps → why structure, attach evidence in `<figure class="evidence">`. To give it

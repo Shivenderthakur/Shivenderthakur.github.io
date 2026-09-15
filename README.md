@@ -87,9 +87,23 @@ The whole realistic asset set is about 6 MB: 2.6 MB of models, 1.9 MB of texture
 
 HDRI, textures and 3D models are from [Poly Haven](https://polyhaven.com), released under
 CC0. Attribution is not required, but credit is given here anyway:
-`aircraft_workshop_01` (HDRI); `forest_ground_04`, `rocky_terrain_02`, `wood_table_worn`,
-`metal_plate` (textures); `circuit_board`, `classic_laptop`, `desk_lamp_arm_01`,
-`metal_toolbox`, `industrial_microscope`, `Television_01` (models).
+`aircraft_workshop_01` (HDRI); `rocky_terrain_02`, `wood_table_worn`, `metal_plate`
+(textures); `circuit_board`, `classic_laptop`, `desk_lamp_arm_01`, `metal_toolbox`,
+`industrial_microscope`, `Television_01` (models).
+
+The software-skill objects in `assets/models/icons/` come from [Poly Pizza](https://poly.pizza)
+and [Kenney](https://kenney.nl). The CC-BY 3.0 ones require attribution, which is also shown
+on the Skills panel:
+
+- `brain.glb`: [Brain](https://poly.pizza/m/5mPRPZkI3qt) by Poly by Google, CC-BY 3.0
+- `flask.glb`: [Erlenmeyer flask](https://poly.pizza/m/eqIGxcsBe1V) by Poly by Google, CC-BY 3.0
+- `computer.glb`: [Computer 90s](https://poly.pizza/m/Bw55oYsbp8) by Charlie, CC-BY 3.0
+- `speech-bubble.glb`: [Speech Bubble](https://poly.pizza/m/0WCt1EUGaAv) by Zoe XR, CC-BY 3.0
+- `eye.glb`: [eye](https://poly.pizza/m/5k9K6C4nQPw) by Minh Nguyen Tri, CC-BY 3.0
+- `snake.glb`: [Snake](https://poly.pizza/m/x9x0viZs8V) by Quaternius, CC0
+- `robot.glb`: [Robot](https://poly.pizza/m/ejDr8lRglP) by Polygonal Mind, CC0
+- `books.glb`: [Books](https://poly.pizza/m/dxt7dETAy9) by CreativeTrio, CC0
+- `penguin.glb`: penguin from [Cube Pets](https://kenney.nl/assets/cube-pets) by Kenney, CC0
 
 ## Run it locally
 

@@ -62,6 +62,7 @@ function boot() {
       const v = bench.block().project(camera);
       return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight, world: bench.block().toArray() };
     };
+    window.__world = { scene, camera, renderer, island, bench, get composer() { return composer; }, setPost: (on) => { if (!on) composer = null; } };
   }
 
   renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -70,6 +71,7 @@ function boot() {
   window.addEventListener("resize", resize, { passive: true });
   bindPointer();
   bindPanels();
+  bindCloseup();
   snapCamera();
   requestAnimationFrame(frame);
 }
@@ -104,6 +106,7 @@ const wantEye = new THREE.Vector3();
 const wantTarget = new THREE.Vector3();
 
 let current = null;          // the place in focus, or null for the overview
+let closeup = -1;            // the hardware model in close-up at the skills lab, or -1
 let orbitNudge = 0;          // how far the reader has turned while at a place
 let orbitTilt = 0;           // and how far they have looked up or down
 let zoomNudge = 1;
@@ -122,7 +125,8 @@ function desired() {
     return;
   }
 
-  const p = current;
+  /* at the skills lab the camera can slide along the cabinet, model by model */
+  const p = closeup >= 0 ? island.hardwareStops()[closeup] : current;
   const dir = p.dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), orbitNudge);
   const dist = p.dist * (narrow ? 1.25 : 1) * zoomNudge;
   wantTarget.copy(p.focus);
@@ -306,6 +310,7 @@ function go(keyName, { replace = false } = {}) {
   const place = island.places.find((p) => p.key === keyName);
   if (!place) return;
   current = place;
+  closeup = -1;
   orbitNudge = 0;
   orbitTilt = 0;
   zoomNudge = 1;
@@ -318,7 +323,7 @@ function go(keyName, { replace = false } = {}) {
   if (panel) {
     panel.classList.add("is-open");
     const anchor = place.anchor && document.querySelector(place.anchor);
-    panel.scrollTop = anchor ? anchor.offsetTop - 16 : 0;
+    panel.scrollTop = anchor ? anchorTop(panel, anchor) : 0;
   }
   bar.hidden = false;
   document.querySelectorAll("[data-place]").forEach((a) => {
@@ -328,10 +333,12 @@ function go(keyName, { replace = false } = {}) {
   const hash = (place.anchor || place.panel);
   if (location.hash !== hash) history[replace ? "replaceState" : "pushState"](null, "", hash);
   if (labelEl) labelEl.textContent = place.label;
+  renderCloseup();
 }
 
 function leave() {
   current = null;
+  closeup = -1;
   document.body.classList.remove("is-focused");
   delete document.body.dataset.place;
   document.querySelectorAll("[data-panel]").forEach((el) => el.classList.remove("is-open"));
@@ -339,6 +346,7 @@ function leave() {
   bar.hidden = true;
   if (location.hash) history.pushState(null, "", location.pathname);
   if (labelEl) labelEl.textContent = "";
+  renderCloseup();
 }
 
 function step(by) {
@@ -357,15 +365,59 @@ function fromHash() {
     const el = document.querySelector(h);
     const panel = el && el.closest("[data-panel]");
     const owner = panel && island.places.find((p) => p.panel === "#" + panel.id);
-    if (owner) { go(owner.key, { replace: true }); panel.scrollTop = el.offsetTop - 16; }
+    if (owner) { go(owner.key, { replace: true }); panel.scrollTop = anchorTop(panel, el); }
   }
+}
+
+/* scroll so an entry starts where the panel's content starts, below the fixed masthead */
+function anchorTop(panel, el) {
+  return Math.max(0, el.offsetTop - parseFloat(getComputedStyle(panel).paddingTop) + 8);
+}
+
+/* --------------------------------------------------------------- close-up */
+
+/* At the skills lab the camera can leave the view of the whole cabinet and slide
+   from board to board along its shelves: buttons, arrow keys, Escape to back out. */
+
+function setCloseup(i) {
+  const stops = island.hardwareStops();
+  if (i < 0 || !current || current.key !== "skills" || !stops.length) closeup = -1;
+  else {
+    closeup = (i + stops.length) % stops.length;
+    island.showHardware(closeup);
+  }
+  orbitNudge = 0;
+  orbitTilt = 0;
+  zoomNudge = 1;
+  renderCloseup();
+}
+
+function renderCloseup() {
+  const box = document.getElementById("closeup");
+  if (!box || !island) return;
+  const stops = island.hardwareStops();
+  const on = closeup >= 0;
+  document.body.classList.toggle("is-closeup", on);
+  document.getElementById("closeup-enter").hidden = on;
+  ["closeup-prev", "closeup-next", "closeup-exit"].forEach((id) => { document.getElementById(id).hidden = !on; });
+  document.getElementById("closeup-label").textContent = on ? stops[closeup].label : "Hardware cabinet";
+  document.getElementById("closeup-count").textContent = on ? `${closeup + 1} / ${stops.length}` : `${stops.length} boards and sensors`;
+}
+
+function bindCloseup() {
+  if (!document.getElementById("closeup")) return;
+  document.getElementById("closeup-enter").addEventListener("click", () => setCloseup(0));
+  document.getElementById("closeup-prev").addEventListener("click", () => setCloseup(closeup - 1));
+  document.getElementById("closeup-next").addEventListener("click", () => setCloseup(closeup + 1));
+  document.getElementById("closeup-exit").addEventListener("click", () => setCloseup(-1));
+  renderCloseup();
 }
 
 /* ----------------------------------------------------------------- viewer */
 
-/* One viewer for every picture on the site. It always opens on a gallery, the
-   wall or evidence strip the picture belongs to, and moves through it by
-   swipe, arrow keys, the side buttons or the thumbnail strip. */
+/* One viewer for every picture and clip on the site. It always opens on a
+   gallery, the wall or evidence strip the item belongs to, and moves through it
+   by swipe, arrow keys, the side buttons or the thumbnail strip. */
 
 const gallery = { list: [], i: 0 };
 
@@ -382,11 +434,21 @@ function showSlide(dir) {
   const { list, i } = gallery;
   const it = list[i];
   const img = document.getElementById("viewer-img");
-  img.classList.remove("from-left", "from-right");
-  void img.offsetWidth;
-  if (dir) img.classList.add(dir > 0 ? "from-right" : "from-left");
-  img.src = it.full;
-  img.alt = it.alt || "";
+  const video = document.getElementById("viewer-video");
+  const shown = it.video ? video : img;
+  video.pause();
+  img.hidden = !!it.video;
+  video.hidden = !it.video;
+  shown.classList.remove("from-left", "from-right");
+  void shown.offsetWidth;
+  if (dir) shown.classList.add(dir > 0 ? "from-right" : "from-left");
+  if (it.video) {
+    video.poster = it.src || "";
+    video.src = it.full;
+  } else {
+    img.src = it.full;
+    img.alt = it.alt || "";
+  }
   document.getElementById("viewer-cap").textContent = it.alt || "";
   document.getElementById("viewer-count").textContent = list.length > 1 ? `${i + 1} / ${list.length}` : "";
   viewer.classList.toggle("is-single", list.length < 2);
@@ -395,7 +457,7 @@ function showSlide(dir) {
     if (k === i) b.scrollIntoView({ block: "nearest", inline: "center" });
   });
   /* warm the neighbours so a swipe never waits */
-  [i - 1, i + 1].forEach((k) => { const n = list[(k + list.length) % list.length]; if (n) new Image().src = n.full; });
+  [i - 1, i + 1].forEach((k) => { const n = list[(k + list.length) % list.length]; if (n && !n.video) new Image().src = n.full; });
 }
 
 function stepSlide(by) {
@@ -411,6 +473,7 @@ function buildThumbs() {
     const b = document.createElement("button");
     b.type = "button";
     b.setAttribute("aria-label", it.alt || `Picture ${k + 1}`);
+    if (it.video) b.classList.add("is-video");
     const t = document.createElement("img");
     t.src = it.src || it.full;
     t.alt = "";
@@ -426,15 +489,18 @@ function bindViewer() {
   document.getElementById("viewer-prev").addEventListener("click", () => stepSlide(-1));
   document.getElementById("viewer-next").addEventListener("click", () => stepSlide(1));
   viewer.addEventListener("keydown", (e) => {
+    if (e.target.closest?.("video")) return; /* arrows seek inside a focused clip */
     if (e.key === "ArrowRight") { e.preventDefault(); stepSlide(1); }
     if (e.key === "ArrowLeft") { e.preventDefault(); stepSlide(-1); }
   });
   /* a click on the dimmed backdrop closes */
   viewer.addEventListener("click", (e) => { if (e.target === viewer) viewer.close(); });
+  viewer.addEventListener("close", () => document.getElementById("viewer-video").pause());
 
   const stage = document.getElementById("viewer-stage");
   let sx = 0, sy = 0, id = null;
-  stage.addEventListener("pointerdown", (e) => { id = e.pointerId; sx = e.clientX; sy = e.clientY; });
+  /* a drag that starts on a clip is scrubbing its timeline, not a swipe */
+  stage.addEventListener("pointerdown", (e) => { if (e.target.closest("video")) return; id = e.pointerId; sx = e.clientX; sy = e.clientY; });
   stage.addEventListener("pointerup", (e) => {
     if (e.pointerId !== id) return;
     id = null;
@@ -499,7 +565,7 @@ function bindPanels() {
   /* scans inside the panels open in the same viewer, as a gallery of their strip */
   const asItem = (a) => {
     const img = a.querySelector("img");
-    return { full: a.getAttribute("href"), src: img ? img.getAttribute("src") : "", alt: img ? img.alt : "" };
+    return { full: a.getAttribute("href"), src: img ? img.getAttribute("src") : "", alt: img ? img.alt : "", video: a.hasAttribute("data-video") };
   };
   document.querySelectorAll(".evidence a, .wall a").forEach((a) => {
     a.addEventListener("click", (e) => {
@@ -513,6 +579,11 @@ function bindPanels() {
 
   window.addEventListener("keydown", (e) => {
     if (viewer?.open) return;
+    /* in close-up the arrows move along the shelves and Escape backs out to the cabinet */
+    if (closeup >= 0 && ["Escape", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+      setCloseup(e.key === "Escape" ? -1 : closeup + (e.key === "ArrowRight" ? 1 : -1));
+      return;
+    }
     if (e.key === "Escape" && current) leave();
     if (e.key === "ArrowRight" && current) step(1);
     if (e.key === "ArrowLeft" && current) step(-1);

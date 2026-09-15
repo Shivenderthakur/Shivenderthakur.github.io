@@ -1,12 +1,18 @@
 # The LinkedIn export stays local. It is source material, not something to publish.
 *.pdf
-
+.gi
 .DS_Store
 Thumbs.db
 node_modules/
-
+socketiogpt
 # The LinkedIn export is source material, not something to publish.
 data/
-
+media
 # Raw CAD/OBJ archives. The converted, compressed GLBs live in assets/models/.
 3d models/
+
+# Replacement pictures waiting to be placed by tools/assets/place.py (docs/ASSETS.md).
+assets/tmp/
+
+# Python bytecode from tools/assets/place.py.
+__pycache__/

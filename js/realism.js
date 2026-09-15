@@ -125,6 +125,7 @@ export function makeComposer(renderer, scene, camera, { coarse }) {
   }
 
   return {
+    passes: composer.passes,
     render: () => composer.render(),
     setSize(w, h) {
       composer.setSize(w, h);
